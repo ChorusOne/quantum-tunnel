@@ -353,6 +353,7 @@ dependencies = [
  "once_cell",
  "serde",
  "thiserror",
+ "toml",
 ]
 
 [[package]]

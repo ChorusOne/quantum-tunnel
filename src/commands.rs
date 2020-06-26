@@ -18,8 +18,11 @@ use crate::config::QuantumTunnelConfig;
 use abscissa_core::{
     config::Override, Command, Configurable, FrameworkError, Help, Options, Runnable,
 };
+use serde::Serialize;
+use toml;
 use std::path::PathBuf;
-
+use std::fs::File;
+use std::io::Write;
 /// QuantumTunnel Configuration Filename
 pub const CONFIG_FILE: &str = "quantum_tunnel.toml";
 
@@ -56,14 +59,18 @@ impl Configurable<QuantumTunnelConfig> for QuantumTunnelCmd {
         // instead, always return `Some(CONFIG_FILE)` here.
         let filename = PathBuf::from(CONFIG_FILE);
 
-        if filename.exists() {
-            Some(filename)
-        } else {
-            None  //TODO: update to spit out a default file.
+        if !filename.exists() {
+            let mut file = File::create(CONFIG_FILE).ok()?;
+            let cfg = toml::to_string(&QuantumTunnelConfig::default()).unwrap();
+            file.write_all(cfg.as_bytes()).ok()?;
         }
+        Some(filename)
+
     }
 
+
     /// Apply changes to the config after it's been loaded, e.g. overriding
+
     /// values in a config file using command-line options.
     ///
     /// This can be safely deleted if you don't want to override config
