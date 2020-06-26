@@ -16,9 +16,8 @@ mod version;
 use self::{start::StartCmd, version::VersionCmd};
 use crate::config::QuantumTunnelConfig;
 use abscissa_core::{
-    config::Override, Command, Configurable, FrameworkError, Help, Options, Runnable,
+    config::Override, Command, Configurable, FrameworkError, Options, Runnable,
 };
-use serde::Serialize;
 use toml;
 use std::path::PathBuf;
 use std::fs::File;
