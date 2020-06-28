@@ -19,8 +19,8 @@
 )]
 
 use abscissa_core::testing::prelude::*;
-use quantum_tunnel::config::QuantumTunnelConfig;
 use once_cell::sync::Lazy;
+use quantum_tunnel::config::QuantumTunnelConfig;
 
 /// Executes your application binary via `cargo run`.
 ///

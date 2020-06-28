@@ -5,10 +5,13 @@
 use crate::prelude::*;
 
 use crate::config::QuantumTunnelConfig;
-use abscissa_core::{config, Command, FrameworkError, Options, Runnable};
-use futures::{future::{join, join_all}, channel::mpsc::{UnboundedSender as Sender, UnboundedReceiver as Receiver, unbounded}};
-use crate::cosmos::{Handler as CosmosHandler, types::TMHeader};
+use crate::cosmos::{types::TMHeader, Handler as CosmosHandler};
 use crate::substrate::types::SignedBlockWithAuthoritySet;
+use abscissa_core::{config, Command, FrameworkError, Options, Runnable};
+use futures::{
+    channel::mpsc::{unbounded, UnboundedReceiver as Receiver, UnboundedSender as Sender},
+    future::{join, join_all},
+};
 use tokio::spawn;
 
 /// `start` subcommand
@@ -32,11 +35,12 @@ impl Runnable for StartCmd {
         let config = app_config();
 
         let cosmos_chan: (Sender<TMHeader>, Receiver<TMHeader>) = unbounded();
-        let substrate_chan: (Sender<SignedBlockWithAuthoritySet>, Receiver<SignedBlockWithAuthoritySet>) = unbounded();
-
+        let substrate_chan: (
+            Sender<SignedBlockWithAuthoritySet>,
+            Receiver<SignedBlockWithAuthoritySet>,
+        ) = unbounded();
 
         let mut cosmos_handler = CosmosHandler::new(config.cosmos.clone()).await.unwrap();
-
 
         let mut threads = vec![];
         threads.push(spawn(async move {

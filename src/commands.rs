@@ -15,13 +15,11 @@ mod version;
 
 use self::{start::StartCmd, version::VersionCmd};
 use crate::config::QuantumTunnelConfig;
-use abscissa_core::{
-    config::Override, Command, Configurable, FrameworkError, Options, Runnable,
-};
-use toml;
-use std::path::PathBuf;
+use abscissa_core::{config::Override, Command, Configurable, FrameworkError, Options, Runnable};
 use std::fs::File;
 use std::io::Write;
+use std::path::PathBuf;
+use toml;
 /// QuantumTunnel Configuration Filename
 pub const CONFIG_FILE: &str = "quantum_tunnel.toml";
 
@@ -39,7 +37,6 @@ pub enum QuantumTunnelCmd {
     /// The `version` subcommand
     #[options(help = "display version information")]
     Version(VersionCmd),
-
     // The `test-cosmos` subcommand
     // #[options(help = "interactively test the cosmos chain")]
     // CosmosTest(CosmosTestCmd),
@@ -64,9 +61,7 @@ impl Configurable<QuantumTunnelConfig> for QuantumTunnelCmd {
             file.write_all(cfg.as_bytes()).ok()?;
         }
         Some(filename)
-
     }
-
 
     /// Apply changes to the config after it's been loaded, e.g. overriding
 

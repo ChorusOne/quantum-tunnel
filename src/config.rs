@@ -43,7 +43,8 @@ impl Default for CosmosConfig {
         Self {
             chain_id: "<chain_id>".to_owned(),
             rpc_addr: "http://localhost:26657/".to_owned(),
-            seed: "twelve word private seed for the relayer acccount on the cosmos chain".to_owned(),
+            seed: "twelve word private seed for the relayer acccount on the cosmos chain"
+                .to_owned(),
             gas: 500000,
             gas_price: "0.00025stake".to_owned(),
             default_denom: "stake".to_owned(),
@@ -74,7 +75,8 @@ impl Default for SubstrateConfig {
     fn default() -> Self {
         Self {
             ws_addr: "ws://localhost:9944/".to_owned(),
-            seed: "twelve word private seed for the relayer acccount on the cosmos chain".to_owned(),
+            seed: "twelve word private seed for the relayer acccount on the cosmos chain"
+                .to_owned(),
             trusting_period: "144h".to_owned(),
             unbonding_period: "504h".to_owned(),
             max_clock_drift: "30s".to_owned(),
