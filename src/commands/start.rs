@@ -6,6 +6,10 @@ use crate::prelude::*;
 
 use crate::config::QuantumTunnelConfig;
 use abscissa_core::{config, Command, FrameworkError, Options, Runnable};
+use futures::{future::{join, join_all}, channel::mpsc::{UnboundedSender as Sender, UnboundedReceiver as Receiver, unbounded}};
+use crate::cosmos::{Handler as CosmosHandler, types::TMHeader};
+use crate::substrate::types::SignedBlockWithAuthoritySet;
+use tokio::spawn;
 
 /// `start` subcommand
 ///
@@ -23,9 +27,27 @@ pub struct StartCmd {
 
 impl Runnable for StartCmd {
     /// Start the application.
-    fn run(&self) {
+    #[tokio::main]
+    async fn run(&self) {
         let config = app_config();
-        println!("Hello, {}!", &config.cosmos.chain_id);
+
+        let cosmos_chan: (Sender<TMHeader>, Receiver<TMHeader>) = unbounded();
+        let substrate_chan: (Sender<SignedBlockWithAuthoritySet>, Receiver<SignedBlockWithAuthoritySet>) = unbounded();
+
+
+        let mut cosmos_handler = CosmosHandler::new(config.cosmos.clone()).await.unwrap();
+
+
+        let mut threads = vec![];
+        threads.push(spawn(async move {
+            cosmos_handler.recv_handler(cosmos_chan.0).await;
+            // if let Err(e) =  {
+            //     println!("an error occurred; error = {:?}", e);
+            // }
+        }));
+
+        // catch interrupt here, and terminate threads.
+        join_all(threads).await;
     }
 }
 
