@@ -61,6 +61,8 @@ impl Default for CosmosConfig {
 pub struct SubstrateConfig {
     /// address of websocket on substrate chain
     pub ws_addr: String,
+    /// address of rpc socket on substrate chain
+    pub rpc_addr: String,
     /// private seed of relayer on substrate side. subkey compatible, e.g. //Alice//hard; temporary, TODO: remove me
     pub seed: String,
     /// trusting period, e.g. 72h; must be less that unbonding_period
@@ -75,6 +77,7 @@ impl Default for SubstrateConfig {
     fn default() -> Self {
         Self {
             ws_addr: "ws://localhost:9944/".to_owned(),
+            rpc_addr: "http://localhost:9933/".to_owned(),
             seed: "twelve word private seed for the relayer acccount on the cosmos chain"
                 .to_owned(),
             trusting_period: "144h".to_owned(),

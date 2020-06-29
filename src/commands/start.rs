@@ -6,12 +6,13 @@ use crate::prelude::*;
 
 use crate::config::QuantumTunnelConfig;
 use crate::cosmos::{types::TMHeader, Handler as CosmosHandler};
-use crate::substrate::types::SignedBlockWithAuthoritySet;
+use crate::substrate::{types::SignedBlockWithAuthoritySet, Handler as SubstrateHandler};
 use abscissa_core::{config, Command, FrameworkError, Options, Runnable};
 use futures::{
     channel::mpsc::{unbounded, UnboundedReceiver as Receiver, UnboundedSender as Sender},
     future::{join, join_all},
 };
+use std::sync::Arc;
 use tokio::spawn;
 
 /// `start` subcommand
@@ -33,24 +34,21 @@ impl Runnable for StartCmd {
     #[tokio::main]
     async fn run(&self) {
         let config = app_config();
-
-        let cosmos_chan: (Sender<TMHeader>, Receiver<TMHeader>) = unbounded();
-        let substrate_chan: (
-            Sender<SignedBlockWithAuthoritySet>,
-            Receiver<SignedBlockWithAuthoritySet>,
-        ) = unbounded();
-
-        let mut cosmos_handler = CosmosHandler::new(config.cosmos.clone()).await.unwrap();
+        let cosmos_chan_rx: Receiver<TMHeader>;
+        let cosmos_chan_tx: Sender<TMHeader>;
+        let substrate_chan_rx: Receiver<SignedBlockWithAuthoritySet>;
+        let substrate_chan_tx: Sender<SignedBlockWithAuthoritySet>;
+        let (cosmos_chan_tx, cosmos_chan_rx) = unbounded();
+        let (substrate_chan_tx , substrate_chan_rx) = unbounded();
 
         let mut threads = vec![];
-        threads.push(spawn(async move {
-            cosmos_handler.recv_handler(cosmos_chan.0).await;
-            // if let Err(e) =  {
-            //     println!("an error occurred; error = {:?}", e);
-            // }
-        }));
+        threads.push(spawn(CosmosHandler::recv_handler(config.cosmos.clone(), cosmos_chan_tx)));
+        threads.push(spawn(SubstrateHandler::recv_handler(config.substrate.clone(), substrate_chan_tx)));
+        threads.push(spawn(SubstrateHandler::send_handler(config.substrate.clone(), cosmos_chan_rx)));
+        threads.push(spawn(CosmosHandler::send_handler(config.cosmos.clone(), "xxxxxxxxxx".to_string(), substrate_chan_rx)));
 
         // catch interrupt here, and terminate threads.
+
         join_all(threads).await;
     }
 }
