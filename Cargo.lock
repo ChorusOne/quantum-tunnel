@@ -422,6 +422,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d375c433320f6c5057ae04a04376eef4d04ce2801448cf8863a78da99107be4"
 
 [[package]]
+name = "crossbeam-channel"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cced8691919c02aac3cb0a1bc2e9b73d89e832bf9a06fc579d4e71b68a2da061"
+dependencies = [
+ "crossbeam-utils",
+ "maybe-uninit",
+]
+
+[[package]]
 name = "crossbeam-deque"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1885,6 +1895,7 @@ dependencies = [
  "abscissa_core",
  "bip39",
  "bytes",
+ "crossbeam-channel",
  "futures",
  "futures_codec",
  "gumdrop",
@@ -1941,7 +1952,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "552840b97013b1a26992c11eac34bdd778e464601a4c2054b5f0bff7c6761293"
 dependencies = [
  "fuchsia-cprng",
- "libc",
  "rand_core 0.3.1",
  "rdrand",
  "winapi 0.3.8",
@@ -3335,7 +3345,7 @@ version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bfd5b7557925ce778ff9b9ef90e3ade34c524b5ff10e239c69a42d546d2af56"
 dependencies = [
- "rand 0.4.6",
+ "rand 0.7.3",
 ]
 
 [[package]]

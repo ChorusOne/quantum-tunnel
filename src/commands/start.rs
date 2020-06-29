@@ -7,12 +7,11 @@ use crate::prelude::*;
 use crate::config::QuantumTunnelConfig;
 use crate::cosmos::{types::TMHeader, Handler as CosmosHandler};
 use crate::substrate::{types::SignedBlockWithAuthoritySet, Handler as SubstrateHandler};
+use crossbeam_channel::{unbounded, Sender, Receiver};
 use abscissa_core::{config, Command, FrameworkError, Options, Runnable};
 use futures::{
-    channel::mpsc::{unbounded, UnboundedReceiver as Receiver, UnboundedSender as Sender},
-    future::{join, join_all},
 };
-use std::sync::Arc;
+
 use tokio::spawn;
 
 /// `start` subcommand

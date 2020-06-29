@@ -1,9 +1,8 @@
 use crate::config::CosmosConfig;
 use crate::cosmos::types::{TMHeader, MsgUpdateWasmClient, MsgCreateWasmClient};
 use crate::substrate::types::SignedBlockWithAuthoritySet;
-use futures::executor::block_on;
+use crossbeam_channel::{Receiver, Sender};
 use futures::{
-    channel::mpsc::{UnboundedReceiver as Receiver, UnboundedSender as Sender},
     try_join,
 };
 use simple_error::SimpleError;
@@ -49,7 +48,7 @@ impl CosmosHandler {
         info!("opening websocket to to {:?}", tm_addr.clone());
         let mut socket = match EventListener::connect(tm_addr.clone())
             .await {
-                Ok(val) => val,
+                Ok(val) => { info!("raa"); val },
                 Err(e) => {
                     error!("{}", e.to_string());
                     return;
@@ -88,7 +87,7 @@ impl CosmosHandler {
                                                     signed_header: r3.0.signed_header,
                                                     validator_set: r3.1.validators,
                                                 };
-                                                outchan.unbounded_send(h);
+                                                outchan.try_send(h);
                                                 info!(
                                                     "Processed incoming tendermint block for {:}",
                                                     block.header.height
@@ -147,14 +146,8 @@ impl CosmosHandler {
         info!("{:?}", tmpubkey.to_bech32("cosmos"));
 
         loop {
-            let header = match inchan.try_next() {
-                Ok(val) => match val {
-                    Some(val) => val,
-                    None => {
-                        error!("Empty header :/");
-                        return;
-                    }
-                },
+            let header = match inchan.try_recv() {
+                Ok(val) => val,
                 Err(e) => {
                     tokio::time::delay_for(core::time::Duration::new(1,0)).await;
                     continue;

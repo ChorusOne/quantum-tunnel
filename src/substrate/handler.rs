@@ -1,8 +1,8 @@
 use crate::config::SubstrateConfig;
 use crate::cosmos::types::TMHeader;
 use crate::substrate::types::{SignedBlockWithAuthoritySet, SignedBlock, BlockNumber, AuthorityList, Hash, BlockRpcResponse, HashRpcResponse, AuthSetRpcResponse, AuthSetIdRpcResponse};
+use crossbeam_channel::{Receiver, Sender};
 use futures::{
-    channel::mpsc::{UnboundedReceiver as Receiver, UnboundedSender as Sender},
     try_join, StreamExt, SinkExt,
 };
 use simple_error::SimpleError;
@@ -84,7 +84,7 @@ impl SubstrateHandler {
                   Err(e) => { error!("Unable to fetch authset: {}", e); continue; }
               };
               let sbwas = SignedBlockWithAuthoritySet::from_parts(block, authset, set_id);
-              outchan.unbounded_send(sbwas);
+              outchan.try_send(sbwas);
            }
 
            // safe to drop the TCP connection
@@ -96,7 +96,7 @@ impl SubstrateHandler {
         mut inchan: Receiver<TMHeader>,
     ) {
         loop {
-            let msg = match inchan.try_next() {
+            let msg = match inchan.try_recv() {
                 Ok(msg) => {
                     msg
                 }
@@ -105,7 +105,7 @@ impl SubstrateHandler {
                     continue;
                 }
             };
-            info!("{:#?}", msg.unwrap());
+            info!("{:#?}", msg);
         }
     }
 
