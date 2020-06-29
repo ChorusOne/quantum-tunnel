@@ -1893,8 +1893,8 @@ dependencies = [
  "once_cell 1.4.0",
  "serde",
  "serde_json",
- "signatory 0.20.0",
- "signatory-secp256k1 0.20.1",
+ "signatory",
+ "signatory-secp256k1",
  "simple-error",
  "sp-core",
  "sp-finality-grandpa",
@@ -1941,6 +1941,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "552840b97013b1a26992c11eac34bdd778e464601a4c2054b5f0bff7c6761293"
 dependencies = [
  "fuchsia-cprng",
+ "libc",
  "rand_core 0.3.1",
  "rdrand",
  "winapi 0.3.8",
@@ -2471,7 +2472,7 @@ dependencies = [
 [[package]]
 name = "signatory"
 version = "0.20.0"
-source = "git+https://github.com/joe-bowman/signatory.git?branch=0.20.1#2d32aa61ad000a3e66c615beb0a06628141e6441"
+source = "git+https://github.com/joe-bowman/signatory?branch=0.20.1#2d32aa61ad000a3e66c615beb0a06628141e6441"
 dependencies = [
  "ecdsa",
  "ed25519",
@@ -2483,44 +2484,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "signatory"
-version = "0.20.0"
-dependencies = [
- "ecdsa",
- "getrandom",
- "sha2 0.9.1",
- "signature",
- "subtle-encoding",
- "zeroize",
-]
-
-[[package]]
 name = "signatory-dalek"
 version = "0.20.1"
-source = "git+https://github.com/joe-bowman/signatory.git?branch=0.20.1#2d32aa61ad000a3e66c615beb0a06628141e6441"
+source = "git+https://github.com/joe-bowman/signatory?branch=0.20.1#2d32aa61ad000a3e66c615beb0a06628141e6441"
 dependencies = [
  "digest 0.8.1",
  "ed25519-dalek",
  "sha2 0.8.2",
- "signatory 0.20.0 (git+https://github.com/joe-bowman/signatory.git?branch=0.20.1)",
+ "signatory",
 ]
 
 [[package]]
 name = "signatory-secp256k1"
 version = "0.20.1"
-source = "git+https://github.com/joe-bowman/signatory.git?branch=0.20.1#2d32aa61ad000a3e66c615beb0a06628141e6441"
+source = "git+https://github.com/joe-bowman/signatory?branch=0.20.1#2d32aa61ad000a3e66c615beb0a06628141e6441"
 dependencies = [
  "secp256k1",
- "signatory 0.20.0 (git+https://github.com/joe-bowman/signatory.git?branch=0.20.1)",
- "signature",
-]
-
-[[package]]
-name = "signatory-secp256k1"
-version = "0.20.1"
-dependencies = [
- "secp256k1",
- "signatory 0.20.0",
+ "signatory",
  "signature",
 ]
 
@@ -3010,6 +2990,7 @@ dependencies = [
 [[package]]
 name = "tendermint"
 version = "0.14.1"
+source = "git+https://github.com/joe-bowman/tendermint-rs.git#441fb2313a81bbb7fabe769ca32bea91e19ddb54"
 dependencies = [
  "anomaly",
  "async-trait",
@@ -3025,9 +3006,9 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "sha2 0.9.1",
- "signatory 0.20.0 (git+https://github.com/joe-bowman/signatory.git?branch=0.20.1)",
+ "signatory",
  "signatory-dalek",
- "signatory-secp256k1 0.20.1 (git+https://github.com/joe-bowman/signatory.git?branch=0.20.1)",
+ "signatory-secp256k1",
  "subtle 2.2.3",
  "subtle-encoding",
  "tai64",
@@ -3039,6 +3020,7 @@ dependencies = [
 [[package]]
 name = "tendermint-rpc"
 version = "0.14.0"
+source = "git+https://github.com/joe-bowman/tendermint-rs.git#441fb2313a81bbb7fabe769ca32bea91e19ddb54"
 dependencies = [
  "async-tungstenite",
  "bytes",
@@ -3057,7 +3039,8 @@ dependencies = [
 
 [[package]]
 name = "tendermint_light_client"
-version = "0.2.3"
+version = "0.2.4"
+source = "git+https://github.com/ChorusOne/tendermint_light_client.git?branch=client#4f38dfbe9e86033e3099c8db16f73b52025245d3"
 dependencies = [
  "anomaly",
  "chrono",
@@ -3068,7 +3051,7 @@ dependencies = [
  "serde_derive",
  "serde_repr",
  "sha2 0.8.2",
- "signatory 0.20.0 (git+https://github.com/joe-bowman/signatory.git?branch=0.20.1)",
+ "signatory",
  "signatory-dalek",
  "subtle 2.2.3",
  "subtle-encoding",
@@ -3352,7 +3335,7 @@ version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bfd5b7557925ce778ff9b9ef90e3ade34c524b5ff10e239c69a42d546d2af56"
 dependencies = [
- "rand 0.7.3",
+ "rand 0.4.6",
 ]
 
 [[package]]
