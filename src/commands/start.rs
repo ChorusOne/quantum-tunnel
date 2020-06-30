@@ -3,7 +3,7 @@
 /// App-local prelude includes `app_reader()`/`app_writer()`/`app_config()`
 /// accessors along with logging macros. Customize as you see fit.
 use crate::prelude::*;
-
+use futures::future::join_all;
 use crate::config::QuantumTunnelConfig;
 use crate::cosmos::{types::TMHeader, Handler as CosmosHandler};
 use crate::substrate::{types::SignedBlockWithAuthoritySet, Handler as SubstrateHandler};

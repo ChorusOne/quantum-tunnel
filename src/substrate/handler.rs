@@ -18,25 +18,17 @@ use std::fmt;
 use std::u32;
 use bytes::buf::Buf;
 use bytes::buf::ext::BufExt;
+use crate::utils::to_string;
 
 pub struct SubstrateHandler {}
 
 impl SubstrateHandler {
     /// Subscribes to new blocks from Websocket, and pushes TMHeader objects into the Channel.
-    pub async fn recv_handler(cfg: SubstrateConfig, outchan: Sender<SignedBlockWithAuthoritySet>) {
-        //let mut socket = &mut self.socket;
-        let (mut socket, _) = match connect_async(&cfg.ws_addr).await {
-            Ok(val) => val,
-            Err(e) => {
-                error!("{}", e.to_string());
-                return;
-            }
-        };
+    pub async fn recv_handler(cfg: SubstrateConfig, outchan: Sender<SignedBlockWithAuthoritySet>) -> Result<(), String> {
+        let (mut socket, _) = connect_async(&cfg.ws_addr).await.map_err(to_string)?;
         info!("connected websocket to {:?}", &cfg.ws_addr);
-
-
         let subscribe_message = Message::Text(r#"{"jsonrpc":"2.0", "method":"chain_subscribeFinalizedHeads", "params":[], "id": "0"}"#.to_string());
-        socket.send(subscribe_message).await;
+        socket.send(subscribe_message).await.map_err(to_string)?;
 
         while let Some( msg ) = socket.next().await
            {
@@ -84,26 +76,26 @@ impl SubstrateHandler {
                   Err(e) => { error!("Unable to fetch authset: {}", e); continue; }
               };
               let sbwas = SignedBlockWithAuthoritySet::from_parts(block, authset, set_id);
-              outchan.try_send(sbwas);
+              outchan.try_send(sbwas).map_err(to_string)?;
            }
+
+        Ok(())
 
            // safe to drop the TCP connection
 
     }
 
     pub async fn send_handler(
-        cfg: SubstrateConfig,
+        _cfg: SubstrateConfig,
         mut inchan: Receiver<TMHeader>,
-    ) {
+    ) -> Result<(), String> {
         loop {
-            let msg = match inchan.try_recv() {
-                Ok(msg) => {
-                    msg
-                }
-                Err(e) => {
-                    tokio::time::delay_for(core::time::Duration::new(1,0)).await;
-                    continue;
-                }
+            let result = inchan.try_recv();
+            let msg = if result.is_err() {
+                tokio::time::delay_for(core::time::Duration::new(1,0)).await;
+                continue;
+            } else {
+                result.unwrap()
             };
             info!("{:#?}", msg);
         }
