@@ -13,13 +13,15 @@ use tendermint_rpc::{
     event_listener::{EventListener, EventSubscription, TMEventData::EventDataNewBlock},
     Client,
 };
-use serde_json::to_string;
+use crate::utils::to_string;
 use url::Url;
 use signatory_secp256k1;
 use signatory::ecdsa::SecretKey;
 use crate::cosmos::crypto::{seed_from_mnemonic, privkey_from_seed};
 use tendermint_light_client::PublicKey;
 use signatory::public_key::PublicKeyed;
+use std::borrow::Borrow;
+use std::string::ToString;
 
 pub struct CosmosHandler {}
 impl CosmosHandler {
@@ -33,117 +35,65 @@ impl CosmosHandler {
     }
 
     /// Subscribes to new blocks from Websocket, and pushes TMHeader objects into the Channel.
-    pub async fn recv_handler(cfg: CosmosConfig, outchan: Sender<TMHeader>) {
-        let rpc_url = match Url::parse(&cfg.rpc_addr) {
-            Ok(val) => val,
-            Err(e) => {
-                error!("{}", e.to_string());
-                return;
-            }
-        };
-
+    pub async fn recv_handler(cfg: CosmosConfig, outchan: Sender<TMHeader>) -> Result<(), String> {
+        let rpc_url = Url::parse(&cfg.rpc_addr).map_err(to_string)?;
         let tm_addr = CosmosHandler::get_tm_addr(rpc_url);
-
-        let client = Client::new(tm_addr.clone());
+        let mut client = Client::new(tm_addr.clone());
         info!("opening websocket to to {:?}", tm_addr.clone());
-        let mut socket = match EventListener::connect(tm_addr.clone())
-            .await {
-                Ok(val) => { info!("raa"); val },
-                Err(e) => {
-                    error!("{}", e.to_string());
-                    return;
-                }
-            };
+        let mut socket = EventListener::connect(tm_addr.clone()).await.map_err(to_string)?;
 
         info!("connected websocket to {:?}", tm_addr.clone());
-        socket
-            .subscribe(EventSubscription::BlockSubscription)
-            .await;
+        socket.subscribe(EventSubscription::BlockSubscription).await.map_err(to_string)?;
         loop {
-            let result = socket.get_event().await;
-            match result {
-                Err(e) => {
-                    warn!("received something unexpected");
-                    continue;
-                } // TODO: handle errors properly.
-                Ok(res) => match res {
-                    None => error!("No block"),
-                    Some(block) => {
-                        match block.data {
-                            EventDataNewBlock(e) => {
-                                match e.block {
-                                    Some(block) => {
-                                        // TODO: better naming of some of these return values!
-                                        let commit_fut = client.commit(block.header.height);
-                                        let vs_fut = client.validators(block.header.height);
-                                        let r2 = try_join!(commit_fut, vs_fut);
-                                        match r2 {
-                                            Err(e) => {
-                                                error!("Unable to fetch packet parts from rpc");
-                                                return;
-                                            }
-                                            Ok(r3) => {
-                                                let h = TMHeader {
-                                                    signed_header: r3.0.signed_header,
-                                                    validator_set: r3.1.validators,
-                                                };
-                                                outchan.try_send(h);
-                                                info!(
-                                                    "Processed incoming tendermint block for {:}",
-                                                    block.header.height
-                                                );
-                                            }
-                                        }
-                                    }
-                                    None => {
-                                        error!("No block (2)");
-                                        continue;
-                                    }, // TODO: handle errors properly.
-                                }
-                            }
-                            _ => {
-                                error!("Unexpected type");
-                                continue;
-                            }, // TODO: handle errors properly.
-                        }
-                    }
-                },
+            let response = Self::recv_data(&mut socket, &mut client, &outchan).await;
+            if response.is_err() {
+                error!("Error while processing tendermint node response: {}", response.err().unwrap());
             }
         }
     }
 
-    pub async fn send_handler(cfg: CosmosConfig, client_id: String, mut inchan: Receiver<SignedBlockWithAuthoritySet>) {
-        let key = match seed_from_mnemonic(cfg.seed.clone()) {
-            Ok(val) => privkey_from_seed(val),
-            Err(e) => {
-                error!("Unable to create key from seed");
-                return;
+    async fn recv_data(socket: &mut EventListener, client: &mut Client, outchan: &Sender<TMHeader>) -> Result<(), Box<dyn Error>> {
+        let maybe_result = socket.get_event().await?;
+        if maybe_result.is_none() {
+            // Return an error
+        }
+        let result = maybe_result.unwrap();
+        match result.data {
+            EventDataNewBlock(e) => {
+                if e.block.is_none() {
+                    // Return an error
+                }
+                let block = e.block.unwrap();
+                let commit_future = client.commit(block.header.height);
+                let validator_set_future = client.validators(block.header.height);
+                let (signed_header_response, validator_set_response) = try_join!(commit_future, validator_set_future)?;
+                let header = TMHeader {
+                    signed_header: signed_header_response.signed_header,
+                    validator_set: validator_set_response.validators,
+                };
+                outchan.try_send(header)?;
+                info!(
+                    "Processed incoming tendermint block for {:}",
+                    block.header.height
+                );
             }
-        };
+            _ => {
+                return Err("Unexpected type".into());
+            }, // TODO: handle errors properly.
+        }
+        Ok(())
+    }
 
-        let signer = match SecretKey::from_bytes(key) {
-            Ok(val) => signatory_secp256k1::EcdsaSigner::from(&val),
-            Err(e) => {
-                error!("Unable to create signer");
-                return;
-            }
-        };
-        let pubkey = match signer.public_key() {
-            Ok(val) => val,
-            Err(e) => {
-                error!("Unable to determine pubkey");
-                return;
-            }
-        };
-
-        let tmpubkey = match PublicKey::from_raw_secp256k1(pubkey.as_bytes()) {
-            Some(val) => val,
-            None => {
-                error!("Empty pubkey :/");
-                return;
-            }
-        };
-        info!("{:?}", tmpubkey.to_bech32("cosmos"));
+    pub async fn send_handler(cfg: CosmosConfig, client_id: String, mut inchan: Receiver<SignedBlockWithAuthoritySet>) -> Result<(), String> {
+        let key = privkey_from_seed(seed_from_mnemonic(cfg.seed.clone()).map_err(to_string)?);
+        let signer =  signatory_secp256k1::EcdsaSigner::from(SecretKey::from_bytes(key).map_err(to_string)?.borrow());
+        let pub_key = signer.public_key().map_err(to_string)?;
+        let maybe_tm_pubkey =  PublicKey::from_raw_secp256k1(pub_key.as_bytes());
+        if maybe_tm_pubkey.is_none() {
+            return Err("Empty pubkey :/".into());
+        }
+        let tm_pubkey = maybe_tm_pubkey.unwrap();
+        info!("{:?}", tm_pubkey.to_bech32("cosmos"));
 
         loop {
             let header = match inchan.try_recv() {
@@ -155,9 +105,9 @@ impl CosmosHandler {
             };
 
             let msg = MsgUpdateWasmClient{
-                header: header,
+                header,
                 client_id: client_id.clone(),
-                address: tmpubkey.to_bech32("cosmos"),
+                address: tm_pubkey.to_bech32("cosmos"),
             };
 
             info!("{:?}", serde_json::to_string(&msg));
