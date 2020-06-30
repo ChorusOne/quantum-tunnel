@@ -9,8 +9,7 @@ use crate::cosmos::{types::TMHeader, Handler as CosmosHandler};
 use crate::substrate::{types::SignedBlockWithAuthoritySet, Handler as SubstrateHandler};
 use crossbeam_channel::{unbounded, Sender, Receiver};
 use abscissa_core::{config, Command, FrameworkError, Options, Runnable};
-use futures::{
-};
+use futures::{FutureExt, TryFutureExt};
 
 use tokio::spawn;
 
@@ -33,22 +32,26 @@ impl Runnable for StartCmd {
     #[tokio::main]
     async fn run(&self) {
         let config = app_config();
-        let cosmos_chan_rx: Receiver<TMHeader>;
-        let cosmos_chan_tx: Sender<TMHeader>;
-        let substrate_chan_rx: Receiver<SignedBlockWithAuthoritySet>;
-        let substrate_chan_tx: Sender<SignedBlockWithAuthoritySet>;
         let (cosmos_chan_tx, cosmos_chan_rx) = unbounded();
         let (substrate_chan_tx , substrate_chan_rx) = unbounded();
 
-        let mut threads = vec![];
-        threads.push(spawn(CosmosHandler::recv_handler(config.cosmos.clone(), cosmos_chan_tx)));
-        threads.push(spawn(SubstrateHandler::recv_handler(config.substrate.clone(), substrate_chan_tx)));
-        threads.push(spawn(SubstrateHandler::send_handler(config.substrate.clone(), cosmos_chan_rx)));
-        threads.push(spawn(CosmosHandler::send_handler(config.cosmos.clone(), "xxxxxxxxxx".to_string(), substrate_chan_rx)));
+        let mut tasks = vec![];
+        tasks.push(spawn(CosmosHandler::recv_handler(config.cosmos.clone(), cosmos_chan_tx)));
+        tasks.push(spawn(SubstrateHandler::recv_handler(config.substrate.clone(), substrate_chan_tx)));
+        tasks.push(spawn(SubstrateHandler::send_handler(config.substrate.clone(), cosmos_chan_rx)));
+        tasks.push(spawn(CosmosHandler::send_handler(config.cosmos.clone(), "xxxxxxxxxx".to_string(), substrate_chan_rx)));
 
         // catch interrupt here, and terminate threads.
 
-        join_all(threads).await;
+        join_all(tasks).await.iter().for_each(|join_result| {
+            if join_result.is_err() {
+                panic!("Could not join the tasks. Error: {:?}", join_result.as_ref().err().unwrap());
+            }
+            let task_result = join_result.as_ref().unwrap();
+            if task_result.is_err() {
+                panic!("Task errored out. Error: {:?}", task_result.as_ref().err().unwrap());
+            }
+        });
     }
 }
 
