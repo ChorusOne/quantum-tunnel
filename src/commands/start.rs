@@ -9,7 +9,6 @@ use crate::cosmos::{types::TMHeader, Handler as CosmosHandler};
 use crate::substrate::{types::SignedBlockWithAuthoritySet, Handler as SubstrateHandler};
 use crossbeam_channel::{unbounded, Sender, Receiver};
 use abscissa_core::{config, Command, FrameworkError, Options, Runnable};
-use futures::{FutureExt, TryFutureExt};
 
 use tokio::spawn;
 
