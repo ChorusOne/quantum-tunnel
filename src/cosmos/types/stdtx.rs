@@ -3,6 +3,7 @@ use serde::{Serialize, Deserialize};
 use regex::Regex;
 use log::info;
 use cast::{From, u64};
+use crate::cosmos::types::StdSignature;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct StdTx {
@@ -14,11 +15,13 @@ pub struct StdTx {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct StdSignDoc {
+    #[serde(with = "crate::utils::from_str")]
     pub account_number: u64,
     pub chain_id: String,
     pub fee: Value,
     pub memo: String,
     pub msgs: Vec<Value>,
+    #[serde(with = "crate::utils::from_str")]
     pub sequence: u64,
 }
 
@@ -29,22 +32,20 @@ impl StdTx {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct StdSignature {
-    pub pub_key: Vec<u8>,
-    pub signature: Vec<u8>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct StdFee {
+    #[serde(with = "crate::utils::from_str")]
     pub gas: u64,
     pub amount: Vec<Coin>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Coin {
+    #[serde(with = "crate::utils::from_str")]
     amount: u64,
     denom: String,
 }
+
+pub type Coins = Vec<Coin>;
 
 impl Coin {
     pub fn from(str: String) -> Self {
@@ -70,7 +71,7 @@ impl Coin {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct DecCoin {
     amount: f64,
     denom: String,
@@ -113,7 +114,7 @@ fn std_sign_bytes(chain_id: String, acc_num: u64, sequence: u64, fee: StdFee, ms
     };
 
 
-    serde_json::to_string(&s).unwrap().as_bytes().to_vec()
+    serde_json::to_vec(&s).unwrap()
     // sort json
 }
 
@@ -121,10 +122,32 @@ fn std_sign_bytes(chain_id: String, acc_num: u64, sequence: u64, fee: StdFee, ms
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use std::str::from_utf8;
+    use crate::cosmos::types::{MsgSend, StdMsg};
 
     #[test]
-    fn test_incr_nonce() {
+    fn test_serialize_msgsend() {
         // make sure we match the golang implementation
-        assert_eq!(1, 1);
+        let msg = MsgSend {
+            from_address: "cosmos1a2wjatdh7k80a33qatlgqldmadxxxe3ce573d6".to_owned(),
+            to_address: "cosmos1w6w5afvnqraw5w3g0kshf4kvq6d87tdy0nyxaa".to_owned(),
+            amount: vec![Coin::from("25stake".to_string())],
+        };
+
+
+        let m = vec![serde_json::json!({"type": MsgSend::get_type(), "value": msg})];
+        let f = StdFee{
+            gas: 100000,
+            amount: vec![Coin::from("150atom".to_string())],
+        };
+
+        let tx = StdTx{
+            msg: m,
+            fee: f,
+            signatures: vec![],
+            memo: "oh hai".to_owned(),
+        };
+
+        assert_eq!(from_utf8(tx.get_sign_bytes("test".to_owned(), 0, 0).as_slice()).unwrap(), r#"{"account_number":"0","chain_id":"test","fee":{"amount":[{"amount":"150","denom":"atom"}],"gas":"100000"},"memo":"oh hai","msgs":[{"type":"cosmos-sdk/MsgSend","value":{"amount":[{"amount":"25","denom":"stake"}],"from_address":"cosmos1a2wjatdh7k80a33qatlgqldmadxxxe3ce573d6","to_address":"cosmos1w6w5afvnqraw5w3g0kshf4kvq6d87tdy0nyxaa"}}],"sequence":"0"}"#.to_string())
     }
 }

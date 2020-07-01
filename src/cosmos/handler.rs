@@ -1,5 +1,5 @@
 use crate::config::CosmosConfig;
-use crate::cosmos::types::{TMHeader, MsgUpdateWasmClient, MsgCreateWasmClient, StdTx, StdFee, DecCoin, TMUpdateClientPayload, StdMsg};
+use crate::cosmos::types::{TMHeader, MsgUpdateWasmClient, MsgCreateWasmClient, StdSignature, StdTx, StdFee, DecCoin, TMUpdateClientPayload, StdMsg};
 use crate::substrate::types::SignedBlockWithAuthoritySet;
 use crossbeam_channel::{Receiver, Sender};
 use futures::{
@@ -107,19 +107,19 @@ impl CosmosHandler {
         }
     }
 
-    fn signer_from_seed(seed: String) -> Result<(signatory_secp256k1::EcdsaSigner, String), String> {
+    fn signer_from_seed(seed: String) -> Result<(signatory_secp256k1::EcdsaSigner, PublicKey, String), String> {
         let key = seed_from_mnemonic(seed).map_err(to_string)?;
         let secret_key = SecretKey::from_bytes(privkey_from_seed(key)).map_err(to_string)?;
         let signer = signatory_secp256k1::EcdsaSigner::from(&secret_key);
         let tmpubkey = PublicKey::from(signer.public_key().map_err(to_string)?);
         let address = bech32::encode("cosmos", AccountId::from(tmpubkey).as_bytes());
         info!("Sender address: {:?}", address.clone());
-        Ok((signer, address))
+        Ok((signer, tmpubkey, address))
     }
 
     pub async fn send_handler(cfg: CosmosConfig, client_id: Option<String>, mut inchan: Receiver<SignedBlockWithAuthoritySet>) -> Result<(), String> {
 
-        let (signer, address) = CosmosHandler::signer_from_seed(cfg.seed.clone()).map_err(to_string)?;
+        let (signer, _, address) = CosmosHandler::signer_from_seed(cfg.seed.clone()).map_err(to_string)?;
         let client_id = match client_id {
             Some(val) => val,
             None => {
@@ -165,7 +165,7 @@ impl CosmosHandler {
 
 
     pub async fn create_client(cfg: CosmosConfig, header: SignedBlockWithAuthoritySet) -> Result<String, String> {
-        let (signer, address) = CosmosHandler::signer_from_seed(cfg.seed.clone()).map_err(to_string)?;
+        let (signer, pubkey, address) = CosmosHandler::signer_from_seed(cfg.seed.clone()).map_err(to_string)?;
 
         let client_id = create_client_id();
 
@@ -185,16 +185,18 @@ impl CosmosHandler {
             amount: vec![DecCoin::from(cfg.gas_price).mul(cfg.gas as f64).to_coin()],
         };
 
-        let tx = StdTx{
+        let mut tx = StdTx{
             msg: m,
             fee: f,
             signatures: vec![],
             memo: "Oh hai".to_owned(),
         };
 
-        info!("{:?}", from_utf8(tx.get_sign_bytes("test".to_string(), 0, 0).as_slice()).unwrap());
+        let bytes_to_sign = tx.get_sign_bytes("test".to_string(), 0, 0);
+        let sig_block = StdSignature::sign(signer, bytes_to_sign);
+        tx.signatures.push(sig_block);
 
-        //info!("{:?}", serde_json::to_string(&msg));
+        info!("{:?}", serde_json::to_string(&tx));
 
         Ok(client_id.clone())
     }

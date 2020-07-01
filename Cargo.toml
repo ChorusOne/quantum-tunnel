@@ -27,6 +27,7 @@ rand = "0.6.5"
 parse_duration = "*"
 regex = "1"
 cast = "0.1.0"
+signature = "*"
 
 [dependencies.signatory-secp256k1]
 version = "0.20.0"

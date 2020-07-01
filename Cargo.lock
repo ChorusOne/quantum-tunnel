@@ -1849,6 +1849,7 @@ dependencies = [
  "serde_json",
  "signatory",
  "signatory-secp256k1",
+ "signature",
  "simple-error",
  "sp-core",
  "sp-finality-grandpa",

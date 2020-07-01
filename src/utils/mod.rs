@@ -1,6 +1,9 @@
+pub mod from_str;
+
 use std::error::Error;
 use std::fmt::Display;
 use rand::{Rng, thread_rng};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
 
 // Util function to convert error to string
 pub fn to_string<T>(err: T) -> String where T: Display {
