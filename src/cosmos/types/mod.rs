@@ -9,3 +9,5 @@ pub type StdTx = stdtx::StdTx;
 pub type Coin = stdtx::Coin;
 pub type StdFee = stdtx::StdFee;
 pub type DecCoin = stdtx::DecCoin;
+pub type TMUpdateClientPayload = tm::TMUpdateClientPayload;
+pub type TMCreateClientPayload = tm::TMCreateClientPayload;

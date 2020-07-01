@@ -1,6 +1,7 @@
 use crate::config::SubstrateConfig;
 use crate::cosmos::types::TMHeader;
 use crate::substrate::types::{SignedBlockWithAuthoritySet, SignedBlock, BlockNumber, AuthorityList, Hash, BlockRpcResponse, HashRpcResponse, AuthSetRpcResponse, AuthSetIdRpcResponse};
+use crate::cosmos::types::TMUpdateClientPayload;
 use crossbeam_channel::{Receiver, Sender};
 use futures::{
     try_join, StreamExt, SinkExt,
@@ -99,7 +100,7 @@ impl SubstrateHandler {
                 result.unwrap()
             };
             //info!("{:#?}", msg);
-            info!("Received as substrate header");
+            info!("Received a tendermint header");
         }
     }
 

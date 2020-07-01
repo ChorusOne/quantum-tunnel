@@ -34,10 +34,6 @@ impl Runnable for StartCmd {
     #[tokio::main]
     async fn run(&self) {
         let config = app_config();
-        let cosmos_chan_rx: Receiver<TMHeader>;
-        let cosmos_chan_tx: Sender<TMHeader>;
-        let substrate_chan_rx: Receiver<SignedBlockWithAuthoritySet>;
-        let substrate_chan_tx: Sender<SignedBlockWithAuthoritySet>;
         let (cosmos_chan_tx, cosmos_chan_rx) = unbounded();
         let (substrate_chan_tx , substrate_chan_rx) = unbounded();
 

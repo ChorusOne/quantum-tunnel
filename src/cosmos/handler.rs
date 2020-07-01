@@ -1,5 +1,5 @@
 use crate::config::CosmosConfig;
-use crate::cosmos::types::{TMHeader, MsgUpdateWasmClient, MsgCreateWasmClient, StdTx, StdFee, DecCoin};
+use crate::cosmos::types::{TMHeader, MsgUpdateWasmClient, MsgCreateWasmClient, StdTx, StdFee, DecCoin, TMUpdateClientPayload};
 use crate::substrate::types::SignedBlockWithAuthoritySet;
 use crossbeam_channel::{Receiver, Sender};
 use futures::{
@@ -18,13 +18,15 @@ use url::Url;
 use signatory_secp256k1;
 use signatory::ecdsa::SecretKey;
 use crate::cosmos::crypto::{seed_from_mnemonic, privkey_from_seed};
-use tendermint_light_client::{PublicKey, Id};
+use tendermint_light_client::{PublicKey, AccountId, LightValidatorSet, LightValidator};
 use signatory::public_key::PublicKeyed;
 use std::borrow::Borrow;
 use std::string::ToString;
 use std::str::from_utf8;
 use subtle_encoding::bech32;
 use parse_duration::parse;
+use crate::error::ErrorKind::{UnexpectedPayload, MalformedResponse};
+use serde::Deserialize;
 
 pub struct CosmosHandler {}
 impl CosmosHandler {
@@ -50,12 +52,31 @@ impl CosmosHandler {
         loop {
             let response = Self::recv_data(&mut socket, &mut client, &outchan).await;
             if response.is_err() {
-                error!("Error while processing tendermint node response: {}", response.err().unwrap());
+                error!("Error while processing tendermint node response: {}", response.err().as_ref().unwrap());
             }
+            let header = response.unwrap();
+            // Sleep for proper delay, Since it doesn't matter if we skip the block in next iteration, anyway.
+            tokio::time::delay_for(core::time::Duration::new(1,0)).await;
+            let next_validator_set_response = client.validators(header.signed_header.header.height + 1).await?;
+            let next_validator_set = Self::convert_to_light_validator_set(next_validator_set_response.validators);
+            // Send both in one go
         }
     }
 
-    async fn recv_data(socket: &mut EventListener, client: &mut Client, outchan: &Sender<TMHeader>) -> Result<(), Box<dyn Error>> {
+    fn convert_to_light_validator_set(validators: Vec<tendermint::validator::Info>) -> LightValidatorSet<LightValidator> {
+        let mut light_validators: Vec<LightValidator> = vec![];
+        for validator in validators {
+            let light_pub_key = match validator.pub_key {
+                tendermint::public_key::PublicKey::Ed25519(key) => tendermint_light_client::PublicKey::Ed25519(key),
+                tendermint::public_key::PublicKey::Secp256k1(key) => tendermint_light_client::PublicKey::Secp256k1(key),
+            };
+            let light_vote_power = tendermint_light_client::VotePower::new(validator.voting_power.value());
+            light_validators.push(LightValidator::new(light_pub_key, light_vote_power));
+        }
+        LightValidatorSet::new(light_validators)
+    }
+
+    async fn recv_data(socket: &mut EventListener, client: &mut Client, outchan: &Sender<TMHeader>) -> Result<TMHeader, Box<dyn Error>> {
         let maybe_result = socket.get_event().await?;
         if maybe_result.is_none() {
             // Return an error
@@ -64,7 +85,7 @@ impl CosmosHandler {
         match result.data {
             EventDataNewBlock(e) => {
                 if e.block.is_none() {
-                    // Return an error
+                    return Err(MalformedResponse("e.block".into()).into());
                 }
                 let block = e.block.unwrap();
                 let commit_future = client.commit(block.header.height);
@@ -72,19 +93,18 @@ impl CosmosHandler {
                 let (signed_header_response, validator_set_response) = try_join!(commit_future, validator_set_future)?;
                 let header = TMHeader {
                     signed_header: signed_header_response.signed_header,
-                    validator_set: validator_set_response.validators,
+                    validator_set: Self::convert_to_light_validator_set(validator_set_response.validators),
                 };
-                outchan.try_send(header)?;
                 info!(
                     "Processed incoming tendermint block for {:}",
                     block.header.height
                 );
+                Ok(header)
             }
             _ => {
-                return Err("Unexpected type".into());
-            }, // TODO: handle errors properly.
+                Err(UnexpectedPayload.into())
+            },
         }
-        Ok(())
     }
 
     fn signer_from_seed(seed: String) -> Result<(signatory_secp256k1::EcdsaSigner, String), String> {
@@ -92,7 +112,7 @@ impl CosmosHandler {
         let secret_key = SecretKey::from_bytes(privkey_from_seed(key)).map_err(to_string)?;
         let signer = signatory_secp256k1::EcdsaSigner::from(&secret_key);
         let tmpubkey = PublicKey::from(signer.public_key().map_err(to_string)?);
-        let address = bech32::encode("cosmos", Id::from(tmpubkey).as_bytes());
+        let address = bech32::encode("cosmos", AccountId::from(tmpubkey).as_bytes());
         info!("Sender address: {:?}", address.clone());
         Ok((signer, address))
     }

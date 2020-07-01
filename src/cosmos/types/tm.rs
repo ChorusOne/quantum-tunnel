@@ -7,7 +7,7 @@ use tendermint_light_client::{ClientId, LightValidator, LightValidatorSet};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TMHeader {
     pub signed_header: SignedHeader,
-    pub validator_set: std::vec::Vec<tendermint::validator::Info>,
+    pub validator_set: LightValidatorSet<LightValidator>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
