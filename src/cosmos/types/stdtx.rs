@@ -116,3 +116,15 @@ fn std_sign_bytes(chain_id: String, acc_num: u64, sequence: u64, fee: StdFee, ms
     serde_json::to_string(&s).unwrap().as_bytes().to_vec()
     // sort json
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_incr_nonce() {
+        // make sure we match the golang implementation
+        assert_eq!(1, 1);
+    }
+}

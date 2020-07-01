@@ -5,6 +5,7 @@ mod stdtx;
 pub type TMHeader = tm::TMHeader;
 pub type MsgCreateWasmClient = msg::MsgCreateWasmClient;
 pub type MsgUpdateWasmClient = msg::MsgUpdateWasmClient;
+pub type StdMsg = msg::StdMsg;
 pub type StdTx = stdtx::StdTx;
 pub type Coin = stdtx::Coin;
 pub type StdFee = stdtx::StdFee;

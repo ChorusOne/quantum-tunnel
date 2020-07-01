@@ -1,5 +1,5 @@
 use crate::config::CosmosConfig;
-use crate::cosmos::types::{TMHeader, MsgUpdateWasmClient, MsgCreateWasmClient, StdTx, StdFee, DecCoin, TMUpdateClientPayload};
+use crate::cosmos::types::{TMHeader, MsgUpdateWasmClient, MsgCreateWasmClient, StdTx, StdFee, DecCoin, TMUpdateClientPayload, StdMsg};
 use crate::substrate::types::SignedBlockWithAuthoritySet;
 use crossbeam_channel::{Receiver, Sender};
 use futures::{
@@ -179,7 +179,7 @@ impl CosmosHandler {
             wasm_id: cfg.wasm_id,
         };
 
-        let m = vec![serde_json::json!(msg)];
+        let m = vec![serde_json::json!({"type": MsgCreateWasmClient::get_type(), "value": msg})];
         let f = StdFee{
             gas: cfg.gas,
             amount: vec![DecCoin::from(cfg.gas_price).mul(cfg.gas as f64).to_coin()],
