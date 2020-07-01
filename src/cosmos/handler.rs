@@ -59,7 +59,7 @@ impl CosmosHandler {
             tokio::time::delay_for(core::time::Duration::new(1,0)).await;
             let next_validator_set_response = client.validators(header.signed_header.header.height + 1).await?;
             let next_validator_set = Self::convert_to_light_validator_set(next_validator_set_response.validators);
-            // Send both in one go
+            // Send header and its next validator set in one go
         }
     }
 
