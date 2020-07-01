@@ -12,9 +12,9 @@ use serde::{Deserialize, Serialize};
 pub struct MsgCreateWasmClient {
     pub client_id: String,
     pub header: SignedBlockWithAuthoritySet,
-    pub trusting_period: u64,
-    pub unbonding_period: u64,
-    pub max_clock_drift: u64,
+    pub trusting_period: String,
+    pub unbonding_period: String,
+    pub max_clock_drift: String,
     pub address: String,
     pub wasm_id: u32,
 }

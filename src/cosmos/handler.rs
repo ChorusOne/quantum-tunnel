@@ -1,5 +1,5 @@
 use crate::config::CosmosConfig;
-use crate::cosmos::types::{TMHeader, MsgUpdateWasmClient, MsgCreateWasmClient};
+use crate::cosmos::types::{TMHeader, MsgUpdateWasmClient, MsgCreateWasmClient, StdTx, StdFee, DecCoin};
 use crate::substrate::types::SignedBlockWithAuthoritySet;
 use crossbeam_channel::{Receiver, Sender};
 use futures::{
@@ -13,15 +13,18 @@ use tendermint_rpc::{
     event_listener::{EventListener, EventSubscription, TMEventData::EventDataNewBlock},
     Client,
 };
-use crate::utils::to_string;
+use crate::utils::{to_string, create_client_id};
 use url::Url;
 use signatory_secp256k1;
 use signatory::ecdsa::SecretKey;
 use crate::cosmos::crypto::{seed_from_mnemonic, privkey_from_seed};
-use tendermint_light_client::PublicKey;
+use tendermint_light_client::{PublicKey, Id};
 use signatory::public_key::PublicKeyed;
 use std::borrow::Borrow;
 use std::string::ToString;
+use std::str::from_utf8;
+use subtle_encoding::bech32;
+use parse_duration::parse;
 
 pub struct CosmosHandler {}
 impl CosmosHandler {
@@ -84,16 +87,36 @@ impl CosmosHandler {
         Ok(())
     }
 
-    pub async fn send_handler(cfg: CosmosConfig, client_id: String, mut inchan: Receiver<SignedBlockWithAuthoritySet>) -> Result<(), String> {
-        let key = privkey_from_seed(seed_from_mnemonic(cfg.seed.clone()).map_err(to_string)?);
-        let signer =  signatory_secp256k1::EcdsaSigner::from(SecretKey::from_bytes(key).map_err(to_string)?.borrow());
-        let pub_key = signer.public_key().map_err(to_string)?;
-        let maybe_tm_pubkey =  PublicKey::from_raw_secp256k1(pub_key.as_bytes());
-        if maybe_tm_pubkey.is_none() {
-            return Err("Empty pubkey :/".into());
-        }
-        let tm_pubkey = maybe_tm_pubkey.unwrap();
-        info!("{:?}", tm_pubkey.to_bech32("cosmos"));
+    fn signer_from_seed(seed: String) -> Result<(signatory_secp256k1::EcdsaSigner, String), String> {
+        let key = seed_from_mnemonic(seed).map_err(to_string)?;
+        let secret_key = SecretKey::from_bytes(privkey_from_seed(key)).map_err(to_string)?;
+        let signer = signatory_secp256k1::EcdsaSigner::from(&secret_key);
+        let tmpubkey = PublicKey::from(signer.public_key().map_err(to_string)?);
+        let address = bech32::encode("cosmos", Id::from(tmpubkey).as_bytes());
+        info!("Sender address: {:?}", address.clone());
+        Ok((signer, address))
+    }
+
+    pub async fn send_handler(cfg: CosmosConfig, client_id: Option<String>, mut inchan: Receiver<SignedBlockWithAuthoritySet>) -> Result<(), String> {
+
+        let (signer, address) = CosmosHandler::signer_from_seed(cfg.seed.clone()).map_err(to_string)?;
+        let client_id = match client_id {
+            Some(val) => val,
+            None => {
+                // if we don't pass in an existing client_id, then try to fetch the first header, and send a create client message.
+                loop {
+                    match inchan.try_recv() {
+                        Ok(val) => {
+                            break CosmosHandler::create_client(cfg.clone(), val).await?
+                        },
+                        Err(e) => {
+                            tokio::time::delay_for(core::time::Duration::new(1,0)).await;
+                            continue;
+                        }
+                    }
+                }
+            }
+        };
 
         loop {
             let header = match inchan.try_recv() {
@@ -107,12 +130,52 @@ impl CosmosHandler {
             let msg = MsgUpdateWasmClient{
                 header,
                 client_id: client_id.clone(),
-                address: tm_pubkey.to_bech32("cosmos"),
+                address: address.clone(),
             };
 
             info!("{:?}", serde_json::to_string(&msg));
-        }
+
+            if (false) {
+                break;
+            }
+        };
+
+        Ok(())
     }
 
-    pub async fn create_client(cfg: CosmosConfig, block: SignedBlockWithAuthoritySet) {}
+
+    pub async fn create_client(cfg: CosmosConfig, header: SignedBlockWithAuthoritySet) -> Result<String, String> {
+        let (signer, address) = CosmosHandler::signer_from_seed(cfg.seed.clone()).map_err(to_string)?;
+
+        let client_id = create_client_id();
+
+        let msg = MsgCreateWasmClient{
+            header: header,
+            address: address,
+            trusting_period: parse(&cfg.trusting_period).unwrap().as_nanos().to_string(),
+            max_clock_drift: parse(&cfg.max_clock_drift).unwrap().as_nanos().to_string(),
+            unbonding_period: parse(&cfg.unbonding_period).unwrap().as_nanos().to_string(),
+            client_id: client_id.clone(),
+            wasm_id: cfg.wasm_id,
+        };
+
+        let m = vec![serde_json::json!(msg)];
+        let f = StdFee{
+            gas: cfg.gas,
+            amount: vec![DecCoin::from(cfg.gas_price).mul(cfg.gas as f64).to_coin()],
+        };
+
+        let tx = StdTx{
+            msg: m,
+            fee: f,
+            signatures: vec![],
+            memo: "Oh hai".to_owned(),
+        };
+
+        info!("{:?}", from_utf8(tx.get_sign_bytes("test".to_string(), 0, 0).as_slice()).unwrap());
+
+        //info!("{:?}", serde_json::to_string(&msg));
+
+        Ok(client_id.clone())
+    }
 }

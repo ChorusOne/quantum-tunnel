@@ -3,7 +3,7 @@
 /// App-local prelude includes `app_reader()`/`app_writer()`/`app_config()`
 /// accessors along with logging macros. Customize as you see fit.
 use crate::prelude::*;
-use futures::future::join_all;
+
 use crate::config::QuantumTunnelConfig;
 use crate::cosmos::{types::TMHeader, Handler as CosmosHandler};
 use crate::substrate::{types::SignedBlockWithAuthoritySet, Handler as SubstrateHandler};
@@ -25,6 +25,8 @@ pub struct StartCmd {
     /// To whom are we saying hello?
     #[options(free)]
     cosmos_chain_id: String,
+    cosmos_client: String,
+    substrate_client: String,
 }
 
 impl Runnable for StartCmd {
@@ -39,11 +41,21 @@ impl Runnable for StartCmd {
         let (cosmos_chan_tx, cosmos_chan_rx) = unbounded();
         let (substrate_chan_tx , substrate_chan_rx) = unbounded();
 
+        let mut cosmos_client = None;
+        if !self.cosmos_client.is_empty() {
+            cosmos_client = Some(self.cosmos_client.clone());
+        }
+
+        let mut substrate_client = None;
+        if !self.substrate_client.is_empty() {
+            substrate_client = Some(self.substrate_client.clone());
+        }
+
         let mut threads = vec![];
         threads.push(spawn(CosmosHandler::recv_handler(config.cosmos.clone(), cosmos_chan_tx)));
         threads.push(spawn(SubstrateHandler::recv_handler(config.substrate.clone(), substrate_chan_tx)));
-        threads.push(spawn(SubstrateHandler::send_handler(config.substrate.clone(), cosmos_chan_rx)));
-        threads.push(spawn(CosmosHandler::send_handler(config.cosmos.clone(), "xxxxxxxxxx".to_string(), substrate_chan_rx)));
+        threads.push(spawn(SubstrateHandler::send_handler(config.substrate.clone(), substrate_client, cosmos_chan_rx)));
+        threads.push(spawn(CosmosHandler::send_handler(config.cosmos.clone(), cosmos_client, substrate_chan_rx)));
 
         // catch interrupt here, and terminate threads.
 

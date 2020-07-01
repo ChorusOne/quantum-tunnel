@@ -33,8 +33,10 @@ pub struct CosmosConfig {
     pub trusting_period: String,
     /// unbonding period of chain, e.g. 504h
     pub unbonding_period: String,
+
+    pub max_clock_drift: String,
     /// identifier of the wasm blob uploaded into the wormhole module on cosmos chain.
-    pub wasm_id: u64,
+    pub wasm_id: u32,
 }
 
 // Default values for Cosmos Chain Configuration
@@ -50,6 +52,7 @@ impl Default for CosmosConfig {
             default_denom: "stake".to_owned(),
             trusting_period: "144h".to_owned(),
             unbonding_period: "504h".to_owned(),
+            max_clock_drift: "30s".to_owned(),
             wasm_id: 1,
         }
     }

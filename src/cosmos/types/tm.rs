@@ -13,9 +13,9 @@ pub struct TMHeader {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TMCreateClientPayload {
     pub header: TMHeader,
-    pub trusting_period: u64,
-    pub max_clock_drift: u64,
-    pub unbonding_period: u64,
+    pub trusting_period: String,
+    pub max_clock_drift: String,
+    pub unbonding_period: String,
     pub client_id: ClientId,
 }
 

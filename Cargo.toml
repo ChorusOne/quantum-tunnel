@@ -18,9 +18,15 @@ log = "0.4.8"
 serde_json = "*"
 hyper = "0.13"
 bytes = "*"
-bip39 = "0.6.0-beta.1"
+tiny-bip39 = "0.7.3"
 tiny-hderive = "0.2.1"
 crossbeam-channel = "0.4.2"
+subtle-encoding = { version = "0.5.1", features = ["bech32-preview"] }
+hex = "0.4.2"
+rand = "0.6.5"
+parse_duration = "*"
+regex = "1"
+cast = "0.1.0"
 
 [dependencies.signatory-secp256k1]
 version = "0.20.0"
@@ -62,10 +68,10 @@ version = "0.14.0"
 
 [dependencies.tendermint_light_client]
 default-features = false
-#path = "../tendermint_light_client"
-git = "https://github.com/ChorusOne/tendermint_light_client.git"
-branch = "client"
-version = "0.2.4"
+path = "../tendermint_light_client"
+#git = "https://github.com/ChorusOne/tendermint_light_client.git"
+#branch = "client"
+version = "0.2.5"
 
 [dependencies.tokio]
 default_features = false

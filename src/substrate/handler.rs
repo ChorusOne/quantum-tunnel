@@ -87,6 +87,7 @@ impl SubstrateHandler {
 
     pub async fn send_handler(
         _cfg: SubstrateConfig,
+        client_id: Option<String>,
         mut inchan: Receiver<TMHeader>,
     ) -> Result<(), String> {
         loop {
@@ -97,7 +98,8 @@ impl SubstrateHandler {
             } else {
                 result.unwrap()
             };
-            info!("{:#?}", msg);
+            //info!("{:#?}", msg);
+            info!("Received as substrate header");
         }
     }
 
