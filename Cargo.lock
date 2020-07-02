@@ -1847,8 +1847,8 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "signatory",
- "signatory-secp256k1",
+ "signatory 0.20.0 (git+https://github.com/ChorusOne/signatory?tag=v0.20.1)",
+ "signatory-secp256k1 0.20.1 (git+https://github.com/ChorusOne/signatory?tag=v0.20.1)",
  "signature",
  "simple-error",
  "sp-core",
@@ -2397,6 +2397,19 @@ dependencies = [
 [[package]]
 name = "signatory"
 version = "0.20.0"
+source = "git+https://github.com/ChorusOne/signatory?tag=v0.20.1#144add7d67a9efb3911d7b9d346a1be77a1cdd91"
+dependencies = [
+ "ecdsa",
+ "getrandom",
+ "sha2 0.9.1",
+ "signature",
+ "subtle-encoding",
+ "zeroize",
+]
+
+[[package]]
+name = "signatory"
+version = "0.20.0"
 source = "git+https://github.com/joe-bowman/signatory?branch=0.20.1#2d32aa61ad000a3e66c615beb0a06628141e6441"
 dependencies = [
  "ecdsa",
@@ -2416,7 +2429,17 @@ dependencies = [
  "digest 0.8.1",
  "ed25519-dalek",
  "sha2 0.8.2",
- "signatory",
+ "signatory 0.20.0 (git+https://github.com/joe-bowman/signatory?branch=0.20.1)",
+]
+
+[[package]]
+name = "signatory-secp256k1"
+version = "0.20.1"
+source = "git+https://github.com/ChorusOne/signatory?tag=v0.20.1#144add7d67a9efb3911d7b9d346a1be77a1cdd91"
+dependencies = [
+ "secp256k1",
+ "signatory 0.20.0 (git+https://github.com/ChorusOne/signatory?tag=v0.20.1)",
+ "signature",
 ]
 
 [[package]]
@@ -2425,7 +2448,7 @@ version = "0.20.1"
 source = "git+https://github.com/joe-bowman/signatory?branch=0.20.1#2d32aa61ad000a3e66c615beb0a06628141e6441"
 dependencies = [
  "secp256k1",
- "signatory",
+ "signatory 0.20.0 (git+https://github.com/joe-bowman/signatory?branch=0.20.1)",
  "signature",
 ]
 
@@ -2915,7 +2938,7 @@ dependencies = [
 [[package]]
 name = "tendermint"
 version = "0.14.1"
-source = "git+https://github.com/joe-bowman/tendermint-rs.git#441fb2313a81bbb7fabe769ca32bea91e19ddb54"
+source = "git+https://github.com/ChorusOne/tendermint-rs.git#7610161109765dacde3ce3bb3b9c5c5bbf45dbbc"
 dependencies = [
  "anomaly",
  "async-trait",
@@ -2931,9 +2954,9 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "sha2 0.9.1",
- "signatory",
+ "signatory 0.20.0 (git+https://github.com/joe-bowman/signatory?branch=0.20.1)",
  "signatory-dalek",
- "signatory-secp256k1",
+ "signatory-secp256k1 0.20.1 (git+https://github.com/joe-bowman/signatory?branch=0.20.1)",
  "subtle 2.2.3",
  "subtle-encoding",
  "tai64",
@@ -2945,7 +2968,7 @@ dependencies = [
 [[package]]
 name = "tendermint-rpc"
 version = "0.14.0"
-source = "git+https://github.com/joe-bowman/tendermint-rs.git#441fb2313a81bbb7fabe769ca32bea91e19ddb54"
+source = "git+https://github.com/ChorusOne/tendermint-rs.git#7610161109765dacde3ce3bb3b9c5c5bbf45dbbc"
 dependencies = [
  "async-tungstenite",
  "bytes",
@@ -2965,6 +2988,7 @@ dependencies = [
 [[package]]
 name = "tendermint_light_client"
 version = "0.2.5"
+source = "git+https://github.com/ChorusOne/tendermint_light_client.git?branch=client#b3b3bde4dc93ca53755f5a12616b404323de0fe1"
 dependencies = [
  "anomaly",
  "chrono",
@@ -2975,7 +2999,7 @@ dependencies = [
  "serde_derive",
  "serde_repr",
  "sha2 0.8.2",
- "signatory",
+ "signatory 0.20.0 (git+https://github.com/joe-bowman/signatory?branch=0.20.1)",
  "signatory-dalek",
  "subtle 2.2.3",
  "subtle-encoding",

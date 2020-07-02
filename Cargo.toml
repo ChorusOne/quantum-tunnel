@@ -30,15 +30,15 @@ cast = "0.1.0"
 signature = "*"
 
 [dependencies.signatory-secp256k1]
-version = "0.20.0"
-git = "https://github.com/joe-bowman/signatory"
-branch = "0.20.1"
+version = "0.20.1"
+git = "https://github.com/ChorusOne/signatory"
+tag = "v0.20.1"
 default_features = false
 
 [dependencies.signatory]
 version = "0.20.0"
-git = "https://github.com/joe-bowman/signatory"
-branch = "0.20.1"
+git = "https://github.com/ChorusOne/signatory"
+tag = "v0.20.1"
 default_features = false
 features = ["ecdsa"]
 
@@ -54,24 +54,21 @@ version = "1"
 
 [dependencies.tendermint]
 default-features = false
-#path = "../tendermint-rs/tendermint"
-git = "https://github.com/joe-bowman/tendermint-rs.git"
+git = "https://github.com/ChorusOne/tendermint-rs.git"
 branch = "master"
 version = "0.14.0"
 
 [dependencies.tendermint-rpc]
 default-features = false
 features = ["client"]
-#path = "../tendermint-rs/rpc"
-git = "https://github.com/joe-bowman/tendermint-rs.git"
+git = "https://github.com/ChorusOne/tendermint-rs.git"
 branch = "master"
 version = "0.14.0"
 
 [dependencies.tendermint_light_client]
 default-features = false
-path = "../tendermint_light_client"
-#git = "https://github.com/ChorusOne/tendermint_light_client.git"
-#branch = "client"
+git = "https://github.com/ChorusOne/tendermint_light_client.git"
+branch = "client"
 version = "0.2.5"
 
 [dependencies.tokio]
