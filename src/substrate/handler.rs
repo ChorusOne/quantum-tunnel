@@ -20,6 +20,7 @@ use std::u32;
 use bytes::buf::Buf;
 use bytes::buf::ext::BufExt;
 use crate::utils::to_string;
+use tendermint_light_client::{LightValidatorSet, LightValidator};
 
 pub struct SubstrateHandler {}
 
@@ -89,7 +90,7 @@ impl SubstrateHandler {
     pub async fn send_handler(
         _cfg: SubstrateConfig,
         client_id: Option<String>,
-        mut inchan: Receiver<TMHeader>,
+        mut inchan: Receiver<(TMHeader, LightValidatorSet<LightValidator>)>,
     ) -> Result<(), String> {
         loop {
             let result = inchan.try_recv();

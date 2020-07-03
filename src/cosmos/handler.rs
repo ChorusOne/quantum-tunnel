@@ -27,6 +27,7 @@ use subtle_encoding::bech32;
 use parse_duration::parse;
 use crate::error::ErrorKind::{UnexpectedPayload, MalformedResponse};
 use serde::Deserialize;
+use std::alloc::handle_alloc_error;
 
 pub struct CosmosHandler {}
 impl CosmosHandler {
@@ -40,7 +41,7 @@ impl CosmosHandler {
     }
 
     /// Subscribes to new blocks from Websocket, and pushes TMHeader objects into the Channel.
-    pub async fn recv_handler(cfg: CosmosConfig, outchan: Sender<TMHeader>) -> Result<(), String> {
+    pub async fn recv_handler(cfg: CosmosConfig, outchan: Sender<(TMHeader, LightValidatorSet<LightValidator>)>) -> Result<(), String> {
         let rpc_url = Url::parse(&cfg.rpc_addr).map_err(to_string)?;
         let tm_addr = CosmosHandler::get_tm_addr(rpc_url);
         let mut client = Client::new(tm_addr.clone());
@@ -49,17 +50,19 @@ impl CosmosHandler {
 
         info!("connected websocket to {:?}", tm_addr.clone());
         socket.subscribe(EventSubscription::BlockSubscription).await.map_err(to_string)?;
+        let mut previous_block: Option<TMHeader> = None;
         loop {
-            let response = Self::recv_data(&mut socket, &mut client, &outchan).await;
+            let response = Self::recv_data(&mut socket, &mut client).await;
             if response.is_err() {
                 error!("Error while processing tendermint node response: {}", response.err().as_ref().unwrap());
             }
             let header = response.unwrap();
-            // Sleep for proper delay, Since it doesn't matter if we skip the block in next iteration, anyway.
-            tokio::time::delay_for(core::time::Duration::new(1,0)).await;
-            let next_validator_set_response = client.validators(header.signed_header.header.height + 1).await?;
-            let next_validator_set = Self::convert_to_light_validator_set(next_validator_set_response.validators);
-            // Send header and its next validator set in one go
+            if previous_block.is_none() {
+                previous_block = Some(header);
+                continue;
+            }
+            outchan.try_send((previous_block.unwrap(), header.validator_set.clone())).map_err(to_string)?;
+            previous_block = Some(header);
         }
     }
 
@@ -76,7 +79,7 @@ impl CosmosHandler {
         LightValidatorSet::new(light_validators)
     }
 
-    async fn recv_data(socket: &mut EventListener, client: &mut Client, outchan: &Sender<TMHeader>) -> Result<TMHeader, Box<dyn Error>> {
+    async fn recv_data(socket: &mut EventListener, client: &mut Client) -> Result<TMHeader, Box<dyn Error>> {
         let maybe_result = socket.get_event().await?;
         if maybe_result.is_none() {
             // Return an error
