@@ -142,10 +142,12 @@ impl SubstrateHandler {
         mut client_id: Option<String>,
         inchan: Receiver<(TMHeader, Vec<tendermint::validator::Info>)>,
     ) -> Result<(), String> {
+        let mut new_client = false;
         let id = if client_id.is_none() {
+            new_client = true;
             Self::generate_client_id(12)
         } else {
-            client_id.clone().unwrap()
+            client_id.unwrap()
         };
         let signer = PairSigner::new(AccountKeyring::Alice.pair());
         let client = ClientBuilder::<NodeTemplateRuntime>::new()
@@ -161,7 +163,8 @@ impl SubstrateHandler {
             } else {
                 result.unwrap()
             };
-            if client_id.is_none() {
+            if new_client {
+                new_client = true;
                 let create_client_payload = TMCreateClientPayload {
                     header: msg.0,
                     trusting_period: cfg.trusting_period,
