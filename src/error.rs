@@ -9,7 +9,7 @@ use std::{
 use thiserror::Error;
 
 /// Kinds of errors
-#[derive(Copy, Clone, Debug, Eq, Error, PartialEq)]
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
 pub enum ErrorKind {
     /// Error in configuration file
     #[error("config error")]
@@ -18,6 +18,14 @@ pub enum ErrorKind {
     /// Input/output error
     #[error("I/O error")]
     Io,
+
+    /// Unexpected Payload
+    #[error("Unexpected payload")]
+    UnexpectedPayload,
+
+    /// Malformed response
+    #[error("Malformed response. `{0}` field was unavailable or could not be parsed")]
+    MalformedResponse(String),
 }
 
 impl ErrorKind {

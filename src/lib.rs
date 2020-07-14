@@ -18,7 +18,8 @@
 pub mod application;
 pub mod commands;
 pub mod config;
+mod cosmos;
 pub mod error;
 pub mod prelude;
-mod cosmos;
 mod substrate;
+mod utils;
