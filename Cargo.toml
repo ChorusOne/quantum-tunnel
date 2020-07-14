@@ -1,8 +1,15 @@
 [package]
-authors = []
+authors = ["Joe Bowman <joe@chorus.one>", "Parth Desai <parth@chorus.one>"]
 edition = "2018"
-name = "quantum_tunnel"
+name = "quantum-tunnel"
 version = "0.1.0"
+
+[[bin]]
+name = "quantum-tunnel"
+test = false
+bench = false
+path = "src/bin/quantum_tunnel/main.rs"
+
 
 [dependencies]
 futures = "0.3.5"
