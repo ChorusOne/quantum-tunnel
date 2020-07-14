@@ -6,7 +6,7 @@ use crate::cosmos::types::{
 };
 use crate::error::ErrorKind::{MalformedResponse, UnexpectedPayload};
 use crate::substrate::types::SignedBlockWithAuthoritySet;
-use crate::utils::{create_client_id, to_string};
+use crate::utils::{generate_client_id, to_string};
 use bytes::buf::Buf;
 use crossbeam_channel::{Receiver, Sender};
 use futures::try_join;
@@ -169,7 +169,7 @@ impl CosmosHandler {
         let (signer, _, address) =
             CosmosHandler::signer_from_seed(cfg.seed.clone()).map_err(to_string)?;
 
-        let client_id = create_client_id();
+        let client_id = generate_client_id();
 
         let msg = MsgCreateWasmClient {
             header,

@@ -72,11 +72,11 @@ pub struct SubstrateConfig {
     /// private seed of relayer on substrate side. subkey compatible, e.g. //Alice//hard; temporary, TODO: remove me
     pub seed: String,
     /// trusting period, e.g. 72h; must be less that unbonding_period
-    pub trusting_period: u64,
+    pub trusting_period: String,
     /// unbonding period of chain, e.g. 504h
-    pub unbonding_period: u64,
+    pub unbonding_period: String,
     /// clock drift tolerance.
-    pub max_clock_drift: u64,
+    pub max_clock_drift: String,
 }
 
 impl Default for SubstrateConfig {
@@ -86,9 +86,9 @@ impl Default for SubstrateConfig {
             rpc_addr: "http://localhost:9933/".to_owned(),
             seed: "twelve word private seed for the relayer acccount on the cosmos chain"
                 .to_owned(),
-            trusting_period: 518400,
-            unbonding_period: 1814400,
-            max_clock_drift: 30,
+            trusting_period: "72h".into(),
+            unbonding_period: "504h".into(),
+            max_clock_drift: "30s".into(),
         }
     }
 }

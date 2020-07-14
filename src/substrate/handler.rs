@@ -4,13 +4,14 @@ use crate::substrate::types::{
     AuthSetIdRpcResponse, AuthSetRpcResponse, BlockRpcResponse, HashRpcResponse, SignedBlock,
     SignedBlockWithAuthoritySet,
 };
-use crate::utils::to_string;
+use crate::utils::{generate_client_id, to_string};
 use bytes::buf::Buf;
 use crossbeam_channel::{Receiver, Sender};
 use futures::{SinkExt, StreamExt};
 use hyper::{body::aggregate, Body, Client, Method, Request};
 use log::*;
 use parity_scale_codec::{Decode, Encode};
+use parse_duration::parse;
 use rand::Rng;
 use serde_json::{from_str, Value};
 use sp_finality_grandpa::AuthorityList;
@@ -145,7 +146,7 @@ impl SubstrateHandler {
         let mut new_client = false;
         let id = if client_id.is_none() {
             new_client = true;
-            Self::generate_client_id(12)
+            generate_client_id()
         } else {
             client_id.unwrap()
         };
@@ -167,9 +168,15 @@ impl SubstrateHandler {
                 new_client = true;
                 let create_client_payload = TMCreateClientPayload {
                     header: msg.0,
-                    trusting_period: cfg.trusting_period,
-                    max_clock_drift: cfg.max_clock_drift,
-                    unbonding_period: cfg.unbonding_period,
+                    trusting_period: parse(cfg.trusting_period.as_str())
+                        .map_err(to_string)?
+                        .as_secs(),
+                    max_clock_drift: parse(cfg.max_clock_drift.as_str())
+                        .map_err(to_string)?
+                        .as_secs(),
+                    unbonding_period: parse(cfg.unbonding_period.as_str())
+                        .map_err(to_string)?
+                        .as_secs(),
                     client_id: id.clone().parse().unwrap(),
                 };
                 client
