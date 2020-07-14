@@ -1,20 +1,54 @@
 use crate::config::SubstrateConfig;
-use crate::cosmos::types::TMHeader;
+use crate::cosmos::types::{TMCreateClientPayload, TMHeader, TMUpdateClientPayload};
 use crate::substrate::types::{
     AuthSetIdRpcResponse, AuthSetRpcResponse, BlockRpcResponse, HashRpcResponse, SignedBlock,
     SignedBlockWithAuthoritySet,
 };
-use crate::utils::to_string;
+use crate::utils::{generate_client_id, to_string};
 use bytes::buf::Buf;
 use crossbeam_channel::{Receiver, Sender};
 use futures::{SinkExt, StreamExt};
 use hyper::{body::aggregate, Body, Client, Method, Request};
 use log::*;
+use parity_scale_codec::{Decode, Encode};
+use parse_duration::parse;
+use rand::Rng;
 use serde_json::{from_str, Value};
 use sp_finality_grandpa::AuthorityList;
+use sp_keyring::AccountKeyring;
 use std::error::Error;
+use std::marker::PhantomData;
+use substrate_subxt::balances::{Balances, BalancesEventsDecoder};
+use substrate_subxt::system::{System, SystemEventsDecoder};
+use substrate_subxt::DefaultNodeRuntime;
+use substrate_subxt::{ClientBuilder, NodeTemplateRuntime, PairSigner};
 use tendermint_light_client::{LightValidator, LightValidatorSet};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
+
+#[module]
+pub trait TendermintClientModule: System + Balances {
+    type Height: Encode + Decode + Default + Send + Sync + Copy + Clone + 'static;
+}
+
+#[derive(Clone, Debug, PartialEq, Call, Encode)]
+pub struct InitClientCall<T: TendermintClientModule> {
+    /// Runtime marker.
+    pub _runtime: PhantomData<T>,
+    /// Payload
+    pub payload: Vec<u8>,
+}
+
+#[derive(Clone, Debug, PartialEq, Call, Encode)]
+pub struct UpdateClientCall<T: TendermintClientModule> {
+    /// Runtime marker.
+    pub _runtime: PhantomData<T>,
+    /// Payload
+    pub payload: Vec<u8>,
+}
+
+impl TendermintClientModule for NodeTemplateRuntime {
+    type Height = u64;
+}
 
 pub struct SubstrateHandler {}
 
@@ -95,11 +129,33 @@ impl SubstrateHandler {
         // safe to drop the TCP connection
     }
 
+    fn generate_client_id(length: usize) -> String {
+        let mut thread_rng = rand::rngs::ThreadRng::default();
+        let mut id = String::new();
+        for _ in 0..length {
+            id.push(char::from(thread_rng.gen_range(97, 123)));
+        }
+        id
+    }
+
     pub async fn send_handler(
-        _cfg: SubstrateConfig,
-        client_id: Option<String>,
-        inchan: Receiver<(TMHeader, LightValidatorSet<LightValidator>)>,
+        cfg: SubstrateConfig,
+        mut client_id: Option<String>,
+        inchan: Receiver<(TMHeader, Vec<tendermint::validator::Info>)>,
     ) -> Result<(), String> {
+        let mut new_client = false;
+        let id = if client_id.is_none() {
+            new_client = true;
+            generate_client_id()
+        } else {
+            client_id.unwrap()
+        };
+        let signer = PairSigner::new(AccountKeyring::Alice.pair());
+        let client = ClientBuilder::<NodeTemplateRuntime>::new()
+            .set_url(cfg.ws_addr)
+            .build()
+            .await
+            .map_err(to_string)?;
         loop {
             let result = inchan.try_recv();
             let msg = if result.is_err() {
@@ -108,12 +164,44 @@ impl SubstrateHandler {
             } else {
                 result.unwrap()
             };
-            //info!("{:#?}", msg);
-            info!("Received a tendermint header");
+            if new_client {
+                new_client = true;
+                let create_client_payload = TMCreateClientPayload {
+                    header: msg.0,
+                    trusting_period: parse(cfg.trusting_period.as_str())
+                        .map_err(to_string)?
+                        .as_secs(),
+                    max_clock_drift: parse(cfg.max_clock_drift.as_str())
+                        .map_err(to_string)?
+                        .as_secs(),
+                    unbonding_period: parse(cfg.unbonding_period.as_str())
+                        .map_err(to_string)?
+                        .as_secs(),
+                    client_id: id.clone().parse().unwrap(),
+                };
+                client
+                    .init_client_and_watch(
+                        &signer,
+                        serde_json::to_vec(&create_client_payload).unwrap(),
+                    )
+                    .await
+                    .map_err(to_string)?;
+            } else {
+                let update_client_payload = TMUpdateClientPayload {
+                    header: msg.0,
+                    client_id: id.clone().parse().unwrap(),
+                    next_validator_set: msg.1,
+                };
+                client
+                    .update_client_and_watch(
+                        &signer,
+                        serde_json::to_vec(&update_client_payload).unwrap(),
+                    )
+                    .await
+                    .map_err(to_string)?;
+            }
         }
     }
-
-    pub async fn create_client(cfg: SubstrateConfig, block: TMHeader) {}
 }
 
 async fn get_block_at_height(

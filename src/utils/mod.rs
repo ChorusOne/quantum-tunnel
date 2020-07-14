@@ -11,7 +11,7 @@ where
     err.to_string()
 }
 
-pub fn create_client_id() -> String {
+pub fn generate_client_id() -> String {
     const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
     const ID_LEN: usize = 10;
     let mut rng = thread_rng();

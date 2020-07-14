@@ -86,9 +86,9 @@ impl Default for SubstrateConfig {
             rpc_addr: "http://localhost:9933/".to_owned(),
             seed: "twelve word private seed for the relayer acccount on the cosmos chain"
                 .to_owned(),
-            trusting_period: "144h".to_owned(),
-            unbonding_period: "504h".to_owned(),
-            max_clock_drift: "30s".to_owned(),
+            trusting_period: "72h".into(),
+            unbonding_period: "504h".into(),
+            max_clock_drift: "30s".into(),
         }
     }
 }
