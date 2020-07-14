@@ -10,19 +10,19 @@ use crossbeam_channel::{Receiver, Sender};
 use futures::{SinkExt, StreamExt};
 use hyper::{body::aggregate, Body, Client, Method, Request};
 use log::*;
-use parity_scale_codec::{Encode, Decode};
+use parity_scale_codec::{Decode, Encode};
 use rand::Rng;
 use serde_json::{from_str, Value};
 use sp_finality_grandpa::AuthorityList;
+use sp_keyring::AccountKeyring;
 use std::error::Error;
-use substrate_subxt::{ClientBuilder, NodeTemplateRuntime, PairSigner};
-use tendermint_light_client::{LightValidator, LightValidatorSet};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
 use std::marker::PhantomData;
 use substrate_subxt::balances::{Balances, BalancesEventsDecoder};
 use substrate_subxt::system::{System, SystemEventsDecoder};
-use substrate_subxt::{DefaultNodeRuntime};
-use sp_keyring::AccountKeyring;
+use substrate_subxt::DefaultNodeRuntime;
+use substrate_subxt::{ClientBuilder, NodeTemplateRuntime, PairSigner};
+use tendermint_light_client::{LightValidator, LightValidatorSet};
+use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 #[module]
 pub trait TendermintClientModule: System + Balances {
@@ -48,7 +48,6 @@ pub struct UpdateClientCall<T: TendermintClientModule> {
 impl TendermintClientModule for NodeTemplateRuntime {
     type Height = u64;
 }
-
 
 pub struct SubstrateHandler {}
 
@@ -133,7 +132,7 @@ impl SubstrateHandler {
         let mut thread_rng = rand::rngs::ThreadRng::default();
         let mut id = String::new();
         for _ in 0..length {
-            id.push(char::from( thread_rng.gen_range(97, 123)));
+            id.push(char::from(thread_rng.gen_range(97, 123)));
         }
         id
     }
@@ -143,6 +142,11 @@ impl SubstrateHandler {
         mut client_id: Option<String>,
         inchan: Receiver<(TMHeader, Vec<tendermint::validator::Info>)>,
     ) -> Result<(), String> {
+        let id = if client_id.is_none() {
+            Self::generate_client_id(12)
+        } else {
+            client_id.clone().unwrap()
+        };
         let signer = PairSigner::new(AccountKeyring::Alice.pair());
         let client = ClientBuilder::<NodeTemplateRuntime>::new()
             .set_url(cfg.ws_addr)
@@ -158,27 +162,33 @@ impl SubstrateHandler {
                 result.unwrap()
             };
             if client_id.is_none() {
-                let id = Self::generate_client_id(12);
                 let create_client_payload = TMCreateClientPayload {
                     header: msg.0,
                     trusting_period: cfg.trusting_period,
                     max_clock_drift: cfg.max_clock_drift,
                     unbonding_period: cfg.unbonding_period,
-                    client_id: id.parse().unwrap(),
+                    client_id: id.clone().parse().unwrap(),
                 };
                 client
-                    .init_client_and_watch(&signer, serde_json::to_vec(&create_client_payload).unwrap())
-                    .await.map_err(to_string)?;
-                client_id = Some(id);
+                    .init_client_and_watch(
+                        &signer,
+                        serde_json::to_vec(&create_client_payload).unwrap(),
+                    )
+                    .await
+                    .map_err(to_string)?;
             } else {
                 let update_client_payload = TMUpdateClientPayload {
                     header: msg.0,
-                    client_id: client_id.clone().unwrap().parse().unwrap(),
+                    client_id: id.clone().parse().unwrap(),
                     next_validator_set: msg.1,
                 };
                 client
-                    .update_client_and_watch(&signer, serde_json::to_vec(&update_client_payload).unwrap())
-                    .await.map_err(to_string)?;
+                    .update_client_and_watch(
+                        &signer,
+                        serde_json::to_vec(&update_client_payload).unwrap(),
+                    )
+                    .await
+                    .map_err(to_string)?;
             }
         }
     }
