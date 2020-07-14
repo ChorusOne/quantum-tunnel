@@ -20,7 +20,9 @@ use std::error::Error;
 use std::string::ToString;
 use subtle_encoding::bech32;
 use tendermint::net::Address;
-use tendermint_light_client::{AccountId, LightValidator, LightValidatorSet, PublicKey};
+use tendermint_light_client::{
+    AccountId, LightSignedHeader, LightValidator, LightValidatorSet, PublicKey,
+};
 use tendermint_rpc::{
     event_listener::{EventListener, EventSubscription, TMEventData::EventDataNewBlock},
     Client,
@@ -40,7 +42,7 @@ impl CosmosHandler {
     /// Subscribes to new blocks from Websocket, and pushes TMHeader objects into the Channel.
     pub async fn recv_handler(
         cfg: CosmosConfig,
-        outchan: Sender<(TMHeader, LightValidatorSet<LightValidator>)>,
+        outchan: Sender<(TMHeader, Vec<tendermint::validator::Info>)>,
     ) -> Result<(), String> {
         let rpc_url = Url::parse(&cfg.rpc_addr).map_err(to_string)?;
         let tm_addr = CosmosHandler::get_tm_addr(rpc_url);
@@ -73,26 +75,6 @@ impl CosmosHandler {
         }
     }
 
-    fn convert_to_light_validator_set(
-        validators: Vec<tendermint::validator::Info>,
-    ) -> LightValidatorSet<LightValidator> {
-        let mut light_validators: Vec<LightValidator> = vec![];
-        for validator in validators {
-            let light_pub_key = match validator.pub_key {
-                tendermint::public_key::PublicKey::Ed25519(key) => {
-                    tendermint_light_client::PublicKey::Ed25519(key)
-                }
-                tendermint::public_key::PublicKey::Secp256k1(key) => {
-                    tendermint_light_client::PublicKey::Secp256k1(key)
-                }
-            };
-            let light_vote_power =
-                tendermint_light_client::VotePower::new(validator.voting_power.value());
-            light_validators.push(LightValidator::new(light_pub_key, light_vote_power));
-        }
-        LightValidatorSet::new(light_validators)
-    }
-
     async fn recv_data(
         socket: &mut EventListener,
         client: &mut Client,
@@ -114,9 +96,7 @@ impl CosmosHandler {
                     try_join!(commit_future, validator_set_future)?;
                 let header = TMHeader {
                     signed_header: signed_header_response.signed_header,
-                    validator_set: Self::convert_to_light_validator_set(
-                        validator_set_response.validators,
-                    ),
+                    validator_set: validator_set_response.validators,
                 };
                 info!(
                     "Processed incoming tendermint block for {:}",
@@ -192,7 +172,7 @@ impl CosmosHandler {
         let client_id = create_client_id();
 
         let msg = MsgCreateWasmClient {
-            header: header,
+            header,
             address: address.clone(),
             trusting_period: parse(&cfg.trusting_period).unwrap().as_nanos().to_string(),
             max_clock_drift: parse(&cfg.max_clock_drift).unwrap().as_nanos().to_string(),

@@ -15,6 +15,9 @@
     unused_qualifications
 )]
 
+#[macro_use]
+extern crate substrate_subxt_proc_macro;
+
 pub mod application;
 pub mod commands;
 pub mod config;
