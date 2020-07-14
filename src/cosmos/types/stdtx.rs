@@ -1,10 +1,11 @@
-use serde_json::{Value, json};
-use serde::{Serialize, Deserialize};
-use regex::Regex;
-use log::info;
-use cast::{From, u64};
 use crate::cosmos::types::StdSignature;
+use cast::u64;
+use log::info;
+use regex::Regex;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 
+//TODO: add amino prost encoding for all this. or better still, wait for protobuf...
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct StdTx {
     pub msg: Vec<Value>,
@@ -27,7 +28,14 @@ pub struct StdSignDoc {
 
 impl StdTx {
     pub fn get_sign_bytes(&self, chain_id: String, acc_num: u64, sequence: u64) -> Vec<u8> {
-        std_sign_bytes(chain_id, acc_num, sequence, self.fee.clone(), self.msg.clone(), self.memo.clone())
+        std_sign_bytes(
+            chain_id,
+            acc_num,
+            sequence,
+            self.fee.clone(),
+            self.msg.clone(),
+            self.memo.clone(),
+        )
     }
 }
 
@@ -52,19 +60,19 @@ impl Coin {
         info!("{}", str);
         let re = Regex::new(r"^(\d+)([a-z]+)$").unwrap();
         let caps = re.captures(&str).unwrap();
-        Coin{
+        Coin {
             amount: str::parse(caps.get(1).unwrap().as_str()).unwrap(),
             denom: caps.get(2).unwrap().as_str().to_string(),
         }
     }
 
     pub fn mul(&mut self, mult: u64) -> &Self {
-        self.amount = self.amount*mult;
+        self.amount = self.amount * mult;
         self
     }
 
     pub fn to_dec_coin(&self) -> DecCoin {
-        DecCoin{
+        DecCoin {
             amount: self.amount as f64,
             denom: self.denom.clone(),
         }
@@ -82,29 +90,35 @@ impl DecCoin {
         info!("{}", str);
         let re = Regex::new(r"^(\d+(\.\d*)?)([a-z]+)$").unwrap();
         let caps = re.captures(&str).unwrap();
-        DecCoin{
+        DecCoin {
             amount: str::parse(caps.get(1).unwrap().as_str()).unwrap(),
             denom: caps.get(3).unwrap().as_str().to_string(),
         }
     }
 
     pub fn mul(&mut self, mult: f64) -> &Self {
-        self.amount = self.amount*mult;
+        self.amount = self.amount * mult;
         self
     }
 
     pub fn to_coin(&self) -> Coin {
         let amount: u64 = u64(self.amount.abs()).unwrap();
-        Coin{
+        Coin {
             amount: amount,
             denom: self.denom.clone(),
         }
     }
 }
 
-
-fn std_sign_bytes(chain_id: String, acc_num: u64, sequence: u64, fee: StdFee, msgs: Vec<Value>, memo: String) -> Vec<u8> {
-    let s = StdSignDoc{
+fn std_sign_bytes(
+    chain_id: String,
+    acc_num: u64,
+    sequence: u64,
+    fee: StdFee,
+    msgs: Vec<Value>,
+    memo: String,
+) -> Vec<u8> {
+    let s = StdSignDoc {
         account_number: acc_num,
         chain_id: chain_id,
         fee: json!(fee),
@@ -113,7 +127,6 @@ fn std_sign_bytes(chain_id: String, acc_num: u64, sequence: u64, fee: StdFee, ms
         sequence: sequence,
     };
 
-
     serde_json::to_vec(&s).unwrap()
     // sort json
 }
@@ -121,9 +134,9 @@ fn std_sign_bytes(chain_id: String, acc_num: u64, sequence: u64, fee: StdFee, ms
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cosmos::types::{MsgSend, StdMsg};
     use std::collections::HashMap;
     use std::str::from_utf8;
-    use crate::cosmos::types::{MsgSend, StdMsg};
 
     #[test]
     fn test_serialize_msgsend() {
@@ -134,14 +147,13 @@ mod tests {
             amount: vec![Coin::from("25stake".to_string())],
         };
 
-
         let m = vec![serde_json::json!({"type": MsgSend::get_type(), "value": msg})];
-        let f = StdFee{
+        let f = StdFee {
             gas: 100000,
             amount: vec![Coin::from("150atom".to_string())],
         };
 
-        let tx = StdTx{
+        let tx = StdTx {
             msg: m,
             fee: f,
             signatures: vec![],

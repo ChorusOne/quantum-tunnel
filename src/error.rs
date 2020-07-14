@@ -19,9 +19,11 @@ pub enum ErrorKind {
     #[error("I/O error")]
     Io,
 
+    /// Unexpected Payload
     #[error("Unexpected payload")]
     UnexpectedPayload,
 
+    /// Malformed response
     #[error("Malformed response. `{0}` field was unavailable or could not be parsed")]
     MalformedResponse(String),
 }

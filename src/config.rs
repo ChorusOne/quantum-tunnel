@@ -20,6 +20,8 @@ pub struct CosmosConfig {
     pub chain_id: String,
     /// address of cosmos websocket
     pub rpc_addr: String,
+    /// address of cosmos rest service
+    pub lcd_addr: String,
     /// seed of relayer account on cosmos chain. temporary, not suitable for production use. TODO: remove me.
     pub seed: String,
     //pub account_prefix: String, // do we need this?
@@ -33,7 +35,7 @@ pub struct CosmosConfig {
     pub trusting_period: String,
     /// unbonding period of chain, e.g. 504h
     pub unbonding_period: String,
-
+    /// max clock drift tolerance
     pub max_clock_drift: String,
     /// identifier of the wasm blob uploaded into the wormhole module on cosmos chain.
     pub wasm_id: u32,
@@ -45,6 +47,7 @@ impl Default for CosmosConfig {
         Self {
             chain_id: "<chain_id>".to_owned(),
             rpc_addr: "http://localhost:26657/".to_owned(),
+            lcd_addr: "http://localhost:1317/".to_owned(),
             seed: "twelve word private seed for the relayer acccount on the cosmos chain"
                 .to_owned(),
             gas: 500000,
