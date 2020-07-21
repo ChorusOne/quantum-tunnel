@@ -177,25 +177,25 @@ impl SubstrateHandler {
                     unbonding_period: parse(cfg.unbonding_period.as_str())
                         .map_err(to_string)?
                         .as_secs(),
-                    client_id: id.clone().parse().unwrap(),
+                    client_id: id.clone().parse().map_err(to_string)?,
                 };
                 client
                     .init_client_and_watch(
                         &signer,
-                        serde_json::to_vec(&create_client_payload).unwrap(),
+                        serde_json::to_vec(&create_client_payload).map_err(to_string)?,
                     )
                     .await
                     .map_err(to_string)?;
             } else {
                 let update_client_payload = TMUpdateClientPayload {
                     header: msg.0,
-                    client_id: id.clone().parse().unwrap(),
+                    client_id: id.clone().parse().map_err(to_string)?,
                     next_validator_set: msg.1,
                 };
                 client
                     .update_client_and_watch(
                         &signer,
-                        serde_json::to_vec(&update_client_payload).unwrap(),
+                        serde_json::to_vec(&update_client_payload).map_err(to_string)?,
                     )
                     .await
                     .map_err(to_string)?;
