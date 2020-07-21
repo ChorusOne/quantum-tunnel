@@ -4,7 +4,7 @@
 /// accessors along with logging macros. Customize as you see fit.
 use crate::prelude::*;
 
-use crate::config::QuantumTunnelConfig;
+use crate::config::{CosmosChainConfig, QuantumTunnelConfig, SubstrateChainConfig};
 use crate::cosmos::Handler as CosmosHandler;
 use crate::substrate::Handler as SubstrateHandler;
 use abscissa_core::{config, Command, FrameworkError, Options, Runnable};
@@ -82,7 +82,12 @@ impl config::Override<QuantumTunnelConfig> for StartCmd {
         mut config: QuantumTunnelConfig,
     ) -> Result<QuantumTunnelConfig, FrameworkError> {
         if !self.cosmos_chain_id.is_empty() {
-            config.cosmos.chain_id = self.cosmos_chain_id.clone();
+            match config.cosmos {
+                CosmosChainConfig::Real(ref mut cfg) => {
+                    cfg.chain_id = self.cosmos_chain_id.clone();
+                }
+                _ => {}
+            }
         }
 
         Ok(config)

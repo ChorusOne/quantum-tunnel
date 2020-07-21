@@ -1,6 +1,7 @@
 mod msg;
 mod responses;
 mod signature;
+pub(crate) mod simulation;
 mod stdtx;
 mod tm;
 pub(crate) use msg::StdMsg;

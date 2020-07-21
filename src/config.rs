@@ -6,10 +6,34 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct QuantumTunnelConfig {
-    /// Configurtion peratining to the cosmos chain.
-    pub cosmos: CosmosConfig,
-    /// Configuration peratining to the substrate chain.
-    pub substrate: SubstrateConfig,
+    /// Configurtion pertaining to the cosmos chain.
+    pub cosmos: CosmosChainConfig,
+    /// Configuration pertaining to the substrate chain.
+    pub substrate: SubstrateChainConfig,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum CosmosChainConfig {
+    Real(CosmosConfig),
+    Simulation(String),
+}
+
+impl Default for CosmosChainConfig {
+    fn default() -> Self {
+        Self::Real(CosmosConfig::default())
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum SubstrateChainConfig {
+    Real(SubstrateConfig),
+    Simulation(String),
+}
+
+impl Default for SubstrateChainConfig {
+    fn default() -> Self {
+        Self::Real(SubstrateConfig::default())
+    }
 }
 
 /// Cosmos Chain Configuration

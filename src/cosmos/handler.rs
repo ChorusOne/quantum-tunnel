@@ -1,5 +1,6 @@
-use crate::config::CosmosConfig;
+use crate::config::{CosmosChainConfig, CosmosConfig};
 use crate::cosmos::crypto::{privkey_from_seed, seed_from_mnemonic};
+use crate::cosmos::types::simulation::Message;
 use crate::cosmos::types::{
     AccountQueryResponse, DecCoin, MsgCreateWasmClient, MsgUpdateWasmClient, StdFee, StdMsg,
     StdSignature, StdTx, TMHeader, TxRpcResponse,
@@ -17,6 +18,7 @@ use signatory::ecdsa::SecretKey;
 use signatory::public_key::PublicKeyed;
 use signatory_secp256k1;
 use std::error::Error;
+use std::path::Path;
 use std::string::ToString;
 use subtle_encoding::bech32;
 use tendermint::net::Address;
@@ -39,8 +41,37 @@ impl CosmosHandler {
         }
     }
 
-    /// Subscribes to new blocks from Websocket, and pushes TMHeader objects into the Channel.
     pub async fn recv_handler(
+        cfg: CosmosChainConfig,
+        outchan: Sender<(TMHeader, Vec<tendermint::validator::Info>)>,
+    ) -> Result<(), String> {
+        match cfg {
+            CosmosChainConfig::Real(cfg) => Self::chain_recv_handler(cfg, outchan).await,
+            CosmosChainConfig::Simulation(test_file) => {
+                Self::simulate_recv_handler(test_file, outchan).await
+            }
+        }
+    }
+
+    pub async fn simulate_recv_handler(
+        test_file: String,
+        outchan: Sender<(TMHeader, Vec<tendermint::validator::Info>)>,
+    ) -> Result<(), String> {
+        let simulation_data =
+            std::fs::read_to_string(Path::new(test_file.as_str())).map_err(to_string)?;
+        let iterator = simulation_data.split("\n\n");
+        for str in iterator {
+            let payload: Message = serde_json::from_str(str).map_err(to_string)?;
+            outchan
+                .try_send((payload.header, payload.next_validators))
+                .map_err(to_string)?;
+        }
+
+        Ok(())
+    }
+
+    /// Subscribes to new blocks from Websocket, and pushes TMHeader objects into the Channel.
+    pub async fn chain_recv_handler(
         cfg: CosmosConfig,
         outchan: Sender<(TMHeader, Vec<tendermint::validator::Info>)>,
     ) -> Result<(), String> {
@@ -120,6 +151,22 @@ impl CosmosHandler {
     }
 
     pub async fn send_handler(
+        cfg: CosmosChainConfig,
+        client_id: Option<String>,
+        inchan: Receiver<SignedBlockWithAuthoritySet>,
+    ) -> Result<(), String> {
+        match cfg {
+            CosmosChainConfig::Real(cfg) => Self::chain_send_handler(cfg, client_id, inchan).await,
+            CosmosChainConfig::Simulation(_test_file) => Self::simulate_send_handler().await,
+        }
+    }
+
+    // Nothing happens for now, as the simulation isn't interactive.
+    pub async fn simulate_send_handler() -> Result<(), String> {
+        Ok(())
+    }
+
+    pub async fn chain_send_handler(
         cfg: CosmosConfig,
         client_id: Option<String>,
         inchan: Receiver<SignedBlockWithAuthoritySet>,
