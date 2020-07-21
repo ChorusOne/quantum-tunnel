@@ -150,6 +150,16 @@ impl SubstrateHandler {
         } else {
             client_id.unwrap()
         };
+        let trusting_period = parse(cfg.trusting_period.as_str())
+            .map_err(to_string)?
+            .as_secs();
+        let max_clock_drift = parse(cfg.max_clock_drift.as_str())
+            .map_err(to_string)?
+            .as_secs();
+        let unbonding_period = parse(cfg.unbonding_period.as_str())
+            .map_err(to_string)?
+            .as_secs();
+        let client_id = id.clone().parse().map_err(to_string)?;
         let signer = PairSigner::new(AccountKeyring::Alice.pair());
         let client = ClientBuilder::<NodeTemplateRuntime>::new()
             .set_url(cfg.ws_addr)
@@ -168,16 +178,10 @@ impl SubstrateHandler {
                 new_client = true;
                 let create_client_payload = TMCreateClientPayload {
                     header: msg.0,
-                    trusting_period: parse(cfg.trusting_period.as_str())
-                        .map_err(to_string)?
-                        .as_secs(),
-                    max_clock_drift: parse(cfg.max_clock_drift.as_str())
-                        .map_err(to_string)?
-                        .as_secs(),
-                    unbonding_period: parse(cfg.unbonding_period.as_str())
-                        .map_err(to_string)?
-                        .as_secs(),
-                    client_id: id.clone().parse().map_err(to_string)?,
+                    trusting_period,
+                    max_clock_drift,
+                    unbonding_period,
+                    client_id,
                 };
                 client
                     .init_client_and_watch(
