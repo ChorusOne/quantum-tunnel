@@ -72,7 +72,7 @@ impl SubstrateHandler {
     ) -> Result<(), String> {
         let simulation_data =
             std::fs::read_to_string(Path::new(test_file.as_str())).map_err(to_string)?;
-        let iterator = simulation_data.split('\n');
+        let iterator = simulation_data.split("\n\n");
         for str in iterator {
             let payload: SignedBlockWithAuthoritySet =
                 serde_json::from_str(str).map_err(to_string)?;
