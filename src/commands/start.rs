@@ -7,10 +7,11 @@ use crate::prelude::*;
 use crate::config::{CosmosChainConfig, QuantumTunnelConfig, SubstrateChainConfig};
 use crate::cosmos::Handler as CosmosHandler;
 use crate::substrate::Handler as SubstrateHandler;
-use abscissa_core::{config, Command, FrameworkError, Options, Runnable};
+use abscissa_core::{config, Command, FrameworkError, FrameworkErrorKind, Options, Runnable};
 use crossbeam_channel::unbounded;
 use futures::future::try_join_all;
 
+use abscissa_core::error::Context;
 use tokio::spawn;
 
 /// `start` subcommand
@@ -81,13 +82,20 @@ impl config::Override<QuantumTunnelConfig> for StartCmd {
         &self,
         mut config: QuantumTunnelConfig,
     ) -> Result<QuantumTunnelConfig, FrameworkError> {
-        if !self.cosmos_chain_id.is_empty() {
-            match config.cosmos {
-                CosmosChainConfig::Real(ref mut cfg) => {
+        match (&mut config.cosmos, &mut config.substrate) {
+            // Both configuration cannot be simulation at the same time
+            (CosmosChainConfig::Simulation(_), SubstrateChainConfig::Simulation(_)) => {
+                return Err(FrameworkError::from(Context::new(
+                    FrameworkErrorKind::ConfigError,
+                    None,
+                )))
+            }
+            (CosmosChainConfig::Real(ref mut cfg), _) => {
+                if !self.cosmos_chain_id.is_empty() {
                     cfg.chain_id = self.cosmos_chain_id.clone();
                 }
-                _ => {}
             }
+            _ => {}
         }
 
         Ok(config)
