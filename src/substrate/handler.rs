@@ -1,4 +1,4 @@
-use crate::config::SubstrateConfig;
+use crate::config::{SubstrateChainConfig, SubstrateConfig};
 use crate::cosmos::types::{TMCreateClientPayload, TMHeader, TMUpdateClientPayload};
 use crate::substrate::types::{
     AuthSetIdRpcResponse, AuthSetRpcResponse, BlockRpcResponse, HashRpcResponse, SignedBlock,
@@ -18,6 +18,7 @@ use sp_finality_grandpa::AuthorityList;
 use sp_keyring::AccountKeyring;
 use std::error::Error;
 use std::marker::PhantomData;
+use std::path::Path;
 use substrate_subxt::balances::{Balances, BalancesEventsDecoder};
 use substrate_subxt::system::{System, SystemEventsDecoder};
 use substrate_subxt::DefaultNodeRuntime;
@@ -53,8 +54,35 @@ impl TendermintClientModule for NodeTemplateRuntime {
 pub struct SubstrateHandler {}
 
 impl SubstrateHandler {
-    /// Subscribes to new blocks from Websocket, and pushes TMHeader objects into the Channel.
     pub async fn recv_handler(
+        cfg: SubstrateChainConfig,
+        outchan: Sender<SignedBlockWithAuthoritySet>,
+    ) -> Result<(), String> {
+        match cfg {
+            SubstrateChainConfig::Real(cfg) => Self::chain_recv_handler(cfg, outchan).await,
+            SubstrateChainConfig::Simulation(test_file) => {
+                Self::simulate_recv_handler(test_file, outchan).await
+            }
+        }
+    }
+
+    pub async fn simulate_recv_handler(
+        test_file: String,
+        outchan: Sender<SignedBlockWithAuthoritySet>,
+    ) -> Result<(), String> {
+        let simulation_data =
+            std::fs::read_to_string(Path::new(test_file.as_str())).map_err(to_string)?;
+        let iterator = simulation_data.split("\n\n");
+        for str in iterator {
+            let payload: SignedBlockWithAuthoritySet =
+                serde_json::from_str(str).map_err(to_string)?;
+            outchan.try_send(payload).map_err(to_string)?;
+        }
+        Ok(())
+    }
+
+    /// Subscribes to new blocks from Websocket, and pushes TMHeader objects into the Channel.
+    pub async fn chain_recv_handler(
         cfg: SubstrateConfig,
         outchan: Sender<SignedBlockWithAuthoritySet>,
     ) -> Result<(), String> {
@@ -139,6 +167,24 @@ impl SubstrateHandler {
     }
 
     pub async fn send_handler(
+        cfg: SubstrateChainConfig,
+        client_id: Option<String>,
+        inchan: Receiver<(TMHeader, Vec<tendermint::validator::Info>)>,
+    ) -> Result<(), String> {
+        match cfg {
+            SubstrateChainConfig::Real(cfg) => {
+                Self::chain_send_handler(cfg, client_id, inchan).await
+            }
+            SubstrateChainConfig::Simulation(_test_file) => Self::simulate_send_handler().await,
+        }
+    }
+
+    // Nothing happens for now, as the simulation isn't interactive.
+    pub async fn simulate_send_handler() -> Result<(), String> {
+        Ok(())
+    }
+
+    pub async fn chain_send_handler(
         cfg: SubstrateConfig,
         mut client_id: Option<String>,
         inchan: Receiver<(TMHeader, Vec<tendermint::validator::Info>)>,
