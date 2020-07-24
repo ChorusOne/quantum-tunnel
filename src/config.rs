@@ -14,7 +14,10 @@ pub struct QuantumTunnelConfig {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum CosmosChainConfig {
+    #[serde(rename = "real")]
     Real(CosmosConfig),
+
+    #[serde(rename = "simulation")]
     Simulation(String),
 }
 
@@ -26,7 +29,10 @@ impl Default for CosmosChainConfig {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SubstrateChainConfig {
+    #[serde(rename = "real")]
     Real(SubstrateConfig),
+
+    #[serde(rename = "simulation")]
     Simulation(String),
 }
 

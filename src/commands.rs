@@ -21,7 +21,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use toml;
 /// QuantumTunnel Configuration Filename
-pub const CONFIG_FILE: &str = "quantum_tunnel.toml";
+pub const CONFIG_FILE: &str = "quantum_tunnel.json";
 
 /// QuantumTunnel Subcommands
 #[derive(Command, Debug, Options, Runnable)]
@@ -37,13 +37,6 @@ pub enum QuantumTunnelCmd {
     /// The `version` subcommand
     #[options(help = "display version information")]
     Version(VersionCmd),
-    // The `test-cosmos` subcommand
-    // #[options(help = "interactively test the cosmos chain")]
-    // CosmosTest(CosmosTestCmd),
-    //
-    // The `test-substrate` subcommand
-    // #[options(help = "interactively test the substrate chain")]
-    // SubstrateTest(SubstrateTestCmd),
 }
 
 /// This trait allows you to define how application configuration is loaded.
@@ -57,7 +50,7 @@ impl Configurable<QuantumTunnelConfig> for QuantumTunnelCmd {
 
         if !filename.exists() {
             let mut file = File::create(CONFIG_FILE).ok()?;
-            let cfg = toml::to_string(&QuantumTunnelConfig::default()).unwrap();
+            let cfg = serde_json::to_string_pretty(&QuantumTunnelConfig::default()).unwrap();
             file.write_all(cfg.as_bytes()).ok()?;
         }
         Some(filename)
