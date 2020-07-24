@@ -1,10 +1,15 @@
 //! QuantumTunnel Abscissa Application
 
 use crate::{commands::QuantumTunnelCmd, config::QuantumTunnelConfig};
+use abscissa_core::error::framework::FrameworkErrorKind::{ConfigError, IoError, PathError};
+use abscissa_core::path::AbsPathBuf;
 use abscissa_core::{
     application::{self, AppCell},
     config, trace, Application, EntryPoint, FrameworkError, StandardPaths,
 };
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 
 /// Application state
 pub static APPLICATION: AppCell<QuantumTunnelApp> = AppCell::new();
@@ -96,6 +101,28 @@ impl Application for QuantumTunnelApp {
         self.state.components.after_config(&config)?;
         self.config = Some(config);
         Ok(())
+    }
+
+    fn load_config(&mut self, path: &Path) -> Result<Self::Cfg, FrameworkError> {
+        let canonical_path = AbsPathBuf::canonicalize(path).map_err(|e| {
+            let path_error = PathError {
+                name: Some(path.into()),
+            };
+            FrameworkError::from(ConfigError.context(path_error))
+        })?;
+
+        let mut file = File::open(AsRef::<Path>::as_ref(&canonical_path)).map_err(|e| {
+            let io_error = IoError.context(e);
+            let path_error = PathError {
+                name: Some(canonical_path.into_path_buf()),
+            }
+            .context(io_error);
+            ConfigError.context(path_error)
+        })?;
+
+        let mut json_string = String::new();
+        file.read_to_string(&mut json_string)?;
+        Ok(serde_json::from_str(&*json_string).map_err(|e| IoError.context(e))?)
     }
 
     /// Get tracing configuration from command-line options
