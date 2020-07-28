@@ -245,13 +245,14 @@ impl SubstrateHandler {
                     client_id: id.clone().parse().map_err(to_string)?,
                     next_validator_set: msg.1,
                 };
+                info!("{}", format!("Updating Cosmos light client with block at height: {}", update_client_payload.header.signed_header.header.height));
                 client
                     .update_client_and_watch(
                         &signer,
                         serde_json::to_vec(&update_client_payload).map_err(to_string)?,
                     )
                     .await
-                    .unwrap();
+                    .map_err(to_string)?;
                 info!("Updated Cosmos light client");
             }
         }

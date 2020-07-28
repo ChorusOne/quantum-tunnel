@@ -9,7 +9,7 @@
          "max_clock_drift": "30s",
          "wasm_id": 2,
          "seed": "across canal reduce siege move frequent allow dirt tumble exclude sort foot heart vocal oval pupil mutual scheme oblige stairs hen carpet express exile",
-         "gas": 900000,
+         "gas": 9000000,
          "gas_price": "0.25stake",
          "default_denom": "stake"
        }
@@ -18,7 +18,7 @@
        "real": {
          "ws_addr": "ws://localhost:9944/",
          "rpc_addr": "http://localhost:9933/",
-         "seed": "",
+         "seed": "velvet document cram develop forward prefer shock trash pair visa monster reward",
          "trusting_period": "72h",
          "unbonding_period": "504h",
          "max_clock_drift": "30s"

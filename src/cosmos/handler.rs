@@ -93,6 +93,7 @@ impl CosmosHandler {
             let response = Self::recv_data(&mut socket, &mut client).await;
             if response.is_err() {
                 error!("Error while processing tendermint node response.");
+                continue;
             }
             let header = response.map_err(to_string)?;
             if previous_block.is_none() {
@@ -222,7 +223,7 @@ impl CosmosHandler {
                 authority_set: header.authority_set,
                 set_id: header.set_id,
                 max_headers_allowed_to_store: 256,
-                max_headers_allowed_between_justifications: 3
+                max_headers_allowed_between_justifications: 512
             },
             address: address.clone(),
             trusting_period: parse(&cfg.trusting_period).map_err(to_string)?.as_nanos().to_string(),
