@@ -6,7 +6,7 @@ use crate::cosmos::types::{
     StdSignature, StdTx, TMHeader, TxRpcResponse,
 };
 use crate::error::ErrorKind::{MalformedResponse, UnexpectedPayload};
-use crate::substrate::types::SignedBlockWithAuthoritySet;
+use crate::substrate::types::{SignedBlockWithAuthoritySet, CreateSignedBlockWithAuthoritySet};
 use crate::utils::{generate_client_id, to_string};
 use bytes::buf::Buf;
 use crossbeam_channel::{Receiver, Sender};
@@ -199,8 +199,6 @@ impl CosmosHandler {
             let txhash =
                 CosmosHandler::update_client(cfg.clone(), header, client_id.clone()).await?;
 
-            info!("Update TxHash: {:?}", txhash);
-
             if false {
                 break;
             }
@@ -219,11 +217,17 @@ impl CosmosHandler {
         let client_id = generate_client_id();
 
         let msg = MsgCreateWasmClient {
-            header,
+            header: CreateSignedBlockWithAuthoritySet{
+                block: header.block,
+                authority_set: header.authority_set,
+                set_id: header.set_id,
+                max_headers_allowed_to_store: 256,
+                max_headers_allowed_between_justifications: 3
+            },
             address: address.clone(),
-            trusting_period: parse(&cfg.trusting_period).unwrap().as_nanos().to_string(),
-            max_clock_drift: parse(&cfg.max_clock_drift).unwrap().as_nanos().to_string(),
-            unbonding_period: parse(&cfg.unbonding_period).unwrap().as_nanos().to_string(),
+            trusting_period: parse(&cfg.trusting_period).map_err(to_string)?.as_nanos().to_string(),
+            max_clock_drift: parse(&cfg.max_clock_drift).map_err(to_string)?.as_nanos().to_string(),
+            unbonding_period: parse(&cfg.unbonding_period).map_err(to_string)?.as_nanos().to_string(),
             client_id: client_id.clone(),
             wasm_id: cfg.wasm_id,
         };
@@ -245,7 +249,7 @@ impl CosmosHandler {
         )
         .await
         .map_err(to_string)?;
-        info!("Create TxHash: {:?}", retval);
+        info!("Substrate light client creation TxHash: {:?}", retval);
         Ok(client_id.clone())
     }
 
@@ -280,7 +284,7 @@ impl CosmosHandler {
         )
         .await
         .map_err(to_string)?;
-
+        info!("Substrate light client updation TxHash: {:?}", retval);
         Ok(retval)
     }
 

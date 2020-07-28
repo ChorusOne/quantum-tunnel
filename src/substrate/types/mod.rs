@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use sp_finality_grandpa::{AuthorityId, AuthorityWeight, VersionedAuthorityList};
 
 pub type SignedBlockWithAuthoritySet = sub::SignedBlockWithAuthoritySet;
+pub type CreateSignedBlockWithAuthoritySet = sub::CreateSignedBlockWithAuthoritySet;
 pub type SignedBlock = sub::SignedBlock;
 pub type AuthorityList = Vec<(AuthorityId, AuthorityWeight)>;
 
