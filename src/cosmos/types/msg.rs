@@ -1,5 +1,5 @@
 use crate::cosmos::types::Coins;
-use crate::substrate::types::SignedBlockWithAuthoritySet;
+use crate::substrate::types::{SignedBlockWithAuthoritySet, CreateSignedBlockWithAuthoritySet};
 use serde::{Deserialize, Serialize};
 
 pub trait StdMsg {
@@ -11,7 +11,7 @@ pub trait StdMsg {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MsgCreateWasmClient {
     pub client_id: String,
-    pub header: SignedBlockWithAuthoritySet,
+    pub header: CreateSignedBlockWithAuthoritySet,
     pub trusting_period: String,
     pub unbonding_period: String,
     pub max_clock_drift: String,
