@@ -236,8 +236,7 @@ impl SubstrateHandler {
                         &signer,
                         serde_json::to_vec(&create_client_payload).map_err(to_string)?,
                     )
-                    .await
-                    .map_err(to_string)?;
+                    .await.unwrap();
                 info!("Created Cosmos light client");
             } else {
                 let update_client_payload = TMUpdateClientPayload {
@@ -251,8 +250,7 @@ impl SubstrateHandler {
                         &signer,
                         serde_json::to_vec(&update_client_payload).map_err(to_string)?,
                     )
-                    .await
-                    .map_err(to_string)?;
+                    .await.unwrap();
                 info!("Updated Cosmos light client");
             }
         }
