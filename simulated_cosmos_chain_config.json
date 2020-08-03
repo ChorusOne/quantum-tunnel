@@ -1,6 +1,6 @@
 {
   "cosmos": {
-    "simulation": "cosmos_light_client_simulated.txt"
+    "simulation": "cosmos_light_client_simulated_2.txt"
   },
   "substrate": {
     "real": {
