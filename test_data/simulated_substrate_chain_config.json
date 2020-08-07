@@ -8,7 +8,6 @@
       "unbonding_period": "721h",
       "max_clock_drift": "30s",
       "wasm_id": 1,
-      "seed": "spend series pony course never addict ceiling trial hunt love move disagree equal adjust two canoe juice heart faculty burden unhappy yard word bullet",
       "gas": 90000000,
       "gas_price": "0.25stake",
       "default_denom": "stake"

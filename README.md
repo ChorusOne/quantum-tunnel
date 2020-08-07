@@ -22,7 +22,7 @@ For Cosmos live chain:
 `COSMOS_SIGNER_SEED=<your >= 12 words seed>`
 
 The `test_data` folder in the repository contains different type of configuration and simulation data for both cosmos and substrate chain.
-Each chain's configuration field in json can be of two forms: real or simulation. 
+Each chain's configuration field in json can be of two forms: `real` or `simulation`. 
 Let's take a look at an example configuration:
 ```json
 {
