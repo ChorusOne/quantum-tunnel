@@ -12,6 +12,7 @@ use crossbeam_channel::unbounded;
 use futures::future::try_join_all;
 
 use abscissa_core::error::Context;
+use std::env;
 use tokio::spawn;
 use tokio::sync::oneshot;
 
@@ -116,12 +117,31 @@ impl config::Override<QuantumTunnelConfig> for StartCmd {
                     None,
                 )))
             }
-            (CosmosChainConfig::Real(ref mut cfg), _) => {
-                if !self.cosmos_chain_id.is_empty() {
-                    cfg.chain_id = self.cosmos_chain_id.clone();
-                }
-            }
             _ => {}
+        }
+
+        if let CosmosChainConfig::Real(ref mut cfg) = config.cosmos {
+            if !self.cosmos_chain_id.is_empty() {
+                cfg.chain_id = self.cosmos_chain_id.clone();
+            }
+
+            // Let's read environment variables to get seed data.
+            cfg.signer_seed = env::var("COSMOS_SIGNER_SEED").map_err(|e| {
+                FrameworkError::from(Context::new(
+                    FrameworkErrorKind::ConfigError,
+                    Some(Box::new(e)),
+                ))
+            })?;
+        }
+
+        if let SubstrateChainConfig::Real(ref mut cfg) = config.substrate {
+            // Let's read environment variables to get seed data.
+            cfg.signer_seed = env::var("SUBSTRATE_SIGNER_SEED").map_err(|e| {
+                FrameworkError::from(Context::new(
+                    FrameworkErrorKind::ConfigError,
+                    Some(Box::new(e)),
+                ))
+            })?;
         }
 
         Ok(config)

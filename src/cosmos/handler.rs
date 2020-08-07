@@ -209,7 +209,7 @@ impl CosmosHandler {
         header: SignedBlockWithAuthoritySet,
     ) -> Result<String, String> {
         let (signer, _, address) =
-            CosmosHandler::signer_from_seed(cfg.seed.clone()).map_err(to_string)?;
+            CosmosHandler::signer_from_seed(cfg.signer_seed.clone()).map_err(to_string)?;
 
         let client_id = generate_client_id();
 
@@ -265,7 +265,7 @@ impl CosmosHandler {
         client_id: String,
     ) -> Result<String, String> {
         let (signer, _, address) =
-            CosmosHandler::signer_from_seed(cfg.seed.clone()).map_err(to_string)?;
+            CosmosHandler::signer_from_seed(cfg.signer_seed.clone()).map_err(to_string)?;
 
         let msg = MsgUpdateWasmClient {
             header: header,
@@ -351,7 +351,7 @@ impl CosmosHandler {
         let acc_resp = hclient.request(acc_req).await.map_err(to_string)?;
         let acc_body = aggregate(acc_resp).await.map_err(to_string)?;
         let acc_rstr = String::from_utf8(acc_body.bytes().to_vec()).map_err(to_string)?;
-        let response: AccountQueryResponse = serde_json::from_str(&acc_rstr).unwrap();
+        let response: AccountQueryResponse = serde_json::from_str(&acc_rstr).map_err(to_string)?;
         Ok((
             response.result.value.account_number,
             response.result.value.sequence,

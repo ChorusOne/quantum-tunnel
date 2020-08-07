@@ -207,8 +207,8 @@ impl SubstrateHandler {
             .map_err(to_string)?
             .as_secs();
         let client_id = id.clone().parse().map_err(to_string)?;
-        let (pair, _) =
-            Sr25519Pair::from_phrase(cfg.seed.as_str(), None).map_err(|e| format!("{:?}", e))?;
+        let (pair, _) = Sr25519Pair::from_phrase(cfg.signer_seed.as_str(), None)
+            .map_err(|e| format!("{:?}", e))?;
         let signer = PairSigner::new(pair);
         let client = ClientBuilder::<NodeTemplateRuntime>::new()
             .set_url(cfg.ws_addr)
