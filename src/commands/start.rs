@@ -13,6 +13,7 @@ use futures::future::try_join_all;
 
 use abscissa_core::error::Context;
 use tokio::spawn;
+use tokio::sync::oneshot;
 
 /// `start` subcommand
 ///
@@ -48,29 +49,54 @@ impl Runnable for StartCmd {
             substrate_client = Some(self.substrate_client.clone());
         }
 
-        let mut threads = vec![];
-        threads.push(spawn(CosmosHandler::recv_handler(
+        tokio::select! {
+            res = CosmosHandler::recv_handler(
             config.cosmos.clone(),
             cosmos_chan_tx,
-        )));
-        threads.push(spawn(SubstrateHandler::recv_handler(
+        ) => {
+            match res {
+                Ok(_) => {
+                    // This should never happen
+                },
+                Err(msg) => panic!(format!("Error occurred while receiving data from Cosmos chain: {}", msg)),
+            }
+        },
+        res = SubstrateHandler::recv_handler(
             config.substrate.clone(),
             substrate_chan_tx,
-        )));
-        threads.push(spawn(SubstrateHandler::send_handler(
+        ) => {
+            match res {
+                Ok(_) => {
+                    // This should never happen
+                },
+                Err(msg) => panic!(format!("Error occurred while receiving data from Substrate chain: {}", msg)),
+            }
+        },
+        res = SubstrateHandler::send_handler(
             config.substrate.clone(),
             substrate_client,
             cosmos_chan_rx,
-        )));
-        threads.push(spawn(CosmosHandler::send_handler(
+        ) => {
+            match res {
+                Ok(_) => {
+                    // This should never happen
+                },
+                Err(msg) => panic!(format!("Error occurred while sending data to Substrate chain: {}", msg)),
+            }
+        },
+        res = CosmosHandler::send_handler(
             config.cosmos.clone(),
             cosmos_client,
             substrate_chan_rx,
-        )));
-
-        // catch interrupt here, and terminate threads.
-
-        try_join_all(threads).await.unwrap();
+        ) => {
+            match res {
+                Ok(_) => {
+                    // This should never happen
+                },
+                Err(msg) => panic!(format!("Error occurred while sending data to cosmos chain: {}", msg)),
+            }
+        },
+        }
     }
 }
 

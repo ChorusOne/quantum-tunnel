@@ -5,8 +5,9 @@ use crate::cosmos::types::{
     AccountQueryResponse, DecCoin, MsgCreateWasmClient, MsgUpdateWasmClient, StdFee, StdMsg,
     StdSignature, StdTx, TMHeader, TxRpcResponse,
 };
+use crate::error::ErrorKind;
 use crate::error::ErrorKind::{MalformedResponse, UnexpectedPayload};
-use crate::substrate::types::{SignedBlockWithAuthoritySet, CreateSignedBlockWithAuthoritySet};
+use crate::substrate::types::{CreateSignedBlockWithAuthoritySet, SignedBlockWithAuthoritySet};
 use crate::utils::{generate_client_id, to_string};
 use bytes::buf::Buf;
 use crossbeam_channel::{Receiver, Sender};
@@ -113,7 +114,7 @@ impl CosmosHandler {
     ) -> Result<TMHeader, Box<dyn Error>> {
         let maybe_result = socket.get_event().await?;
         if maybe_result.is_none() {
-            // Return an error
+            return Err(ErrorKind::Io("unable to get events from socket".to_string()).into());
         }
         let result = maybe_result.unwrap();
         match result.data {
@@ -197,12 +198,7 @@ impl CosmosHandler {
                 }
             };
 
-            let txhash =
-                CosmosHandler::update_client(cfg.clone(), header, client_id.clone()).await?;
-
-            if false {
-                break;
-            }
+            CosmosHandler::update_client(cfg.clone(), header, client_id.clone()).await?;
         }
 
         Ok(())
@@ -218,17 +214,26 @@ impl CosmosHandler {
         let client_id = generate_client_id();
 
         let msg = MsgCreateWasmClient {
-            header: CreateSignedBlockWithAuthoritySet{
+            header: CreateSignedBlockWithAuthoritySet {
                 block: header.block,
                 authority_set: header.authority_set,
                 set_id: header.set_id,
                 max_headers_allowed_to_store: 256,
-                max_headers_allowed_between_justifications: 512
+                max_headers_allowed_between_justifications: 512,
             },
             address: address.clone(),
-            trusting_period: parse(&cfg.trusting_period).map_err(to_string)?.as_nanos().to_string(),
-            max_clock_drift: parse(&cfg.max_clock_drift).map_err(to_string)?.as_nanos().to_string(),
-            unbonding_period: parse(&cfg.unbonding_period).map_err(to_string)?.as_nanos().to_string(),
+            trusting_period: parse(&cfg.trusting_period)
+                .map_err(to_string)?
+                .as_nanos()
+                .to_string(),
+            max_clock_drift: parse(&cfg.max_clock_drift)
+                .map_err(to_string)?
+                .as_nanos()
+                .to_string(),
+            unbonding_period: parse(&cfg.unbonding_period)
+                .map_err(to_string)?
+                .as_nanos()
+                .to_string(),
             client_id: client_id.clone(),
             wasm_id: cfg.wasm_id,
         };
