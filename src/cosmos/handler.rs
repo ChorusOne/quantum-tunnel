@@ -24,7 +24,7 @@ use std::string::ToString;
 use subtle_encoding::bech32;
 use tendermint::net::Address;
 use tendermint_light_client::{
-    AccountId, LightSignedHeader, LightValidator, LightValidatorSet, PublicKey,
+    AccountId, PublicKey,
 };
 use tendermint_rpc::{
     event_listener::{EventListener, EventSubscription, TMEventData::EventDataNewBlock},

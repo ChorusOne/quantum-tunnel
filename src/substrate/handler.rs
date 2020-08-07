@@ -22,9 +22,7 @@ use std::marker::PhantomData;
 use std::path::Path;
 use substrate_subxt::balances::{Balances, BalancesEventsDecoder};
 use substrate_subxt::system::{System, SystemEventsDecoder};
-use substrate_subxt::DefaultNodeRuntime;
 use substrate_subxt::{ClientBuilder, NodeTemplateRuntime, PairSigner};
-use tendermint_light_client::{LightValidator, LightValidatorSet};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 #[module]
@@ -76,7 +74,7 @@ impl SubstrateHandler {
         let iterator = simulation_data.split("\n\n");
         for str in iterator {
             let payload: SignedBlockWithAuthoritySet =
-                serde_json::from_str(str).map_err(to_string)?;
+                from_str(str).map_err(to_string)?;
             outchan.try_send(payload).map_err(to_string)?;
         }
         Ok(())
@@ -187,7 +185,7 @@ impl SubstrateHandler {
 
     pub async fn chain_send_handler(
         cfg: SubstrateConfig,
-        mut client_id: Option<String>,
+        client_id: Option<String>,
         inchan: Receiver<(TMHeader, Vec<tendermint::validator::Info>)>,
     ) -> Result<(), String> {
         let mut new_client = false;

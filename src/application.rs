@@ -104,7 +104,7 @@ impl Application for QuantumTunnelApp {
     }
 
     fn load_config(&mut self, path: &Path) -> Result<Self::Cfg, FrameworkError> {
-        let canonical_path = AbsPathBuf::canonicalize(path).map_err(|e| {
+        let canonical_path = AbsPathBuf::canonicalize(path).map_err(|_e| {
             let path_error = PathError {
                 name: Some(path.into()),
             };

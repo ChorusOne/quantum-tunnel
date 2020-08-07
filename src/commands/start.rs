@@ -36,14 +36,14 @@ impl Runnable for StartCmd {
         let (cosmos_chan_tx, cosmos_chan_rx) = unbounded();
         let (substrate_chan_tx, substrate_chan_rx) = unbounded();
 
-        let mut cosmos_client = None;
+        let mut cosmos_client_id = None;
         if !self.cosmos_client.is_empty() {
-            cosmos_client = Some(self.cosmos_client.clone());
+            cosmos_client_id = Some(self.cosmos_client.clone());
         }
 
-        let mut substrate_client = None;
+        let mut substrate_client_id = None;
         if !self.substrate_client.is_empty() {
-            substrate_client = Some(self.substrate_client.clone());
+            substrate_client_id = Some(self.substrate_client.clone());
         }
 
         tokio::select! {
@@ -71,7 +71,7 @@ impl Runnable for StartCmd {
             },
             res = SubstrateHandler::send_handler(
                 config.substrate.clone(),
-                substrate_client,
+                substrate_client_id,
                 cosmos_chan_rx,
             ) => {
                 match res {
@@ -83,7 +83,7 @@ impl Runnable for StartCmd {
             },
             res = CosmosHandler::send_handler(
                 config.cosmos.clone(),
-                cosmos_client,
+                cosmos_client_id,
                 substrate_chan_rx,
             ) => {
                 match res {

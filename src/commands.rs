@@ -19,7 +19,6 @@ use abscissa_core::{config::Override, Command, Configurable, FrameworkError, Opt
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
-use toml;
 /// QuantumTunnel Configuration Filename
 pub const CONFIG_FILE: &str = "quantum_tunnel.json";
 
