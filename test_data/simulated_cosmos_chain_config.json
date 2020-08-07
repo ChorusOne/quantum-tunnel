@@ -1,0 +1,14 @@
+{
+  "cosmos": {
+    "simulation": "cosmos_light_client_simulated_2.txt"
+  },
+  "substrate": {
+    "real": {
+      "ws_addr": "ws://localhost:9944/",
+      "rpc_addr": "http://localhost:9933/",
+      "trusting_period": "72h",
+      "unbonding_period": "504h",
+      "max_clock_drift": "30s"
+    }
+  }
+}

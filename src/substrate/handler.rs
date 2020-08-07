@@ -14,18 +14,16 @@ use parity_scale_codec::{Decode, Encode};
 use parse_duration::parse;
 use rand::Rng;
 use serde_json::{from_str, Value};
-use sp_finality_grandpa::AuthorityList;
 use sp_core::sr25519::Pair as Sr25519Pair;
+use sp_core::Pair;
+use sp_finality_grandpa::AuthorityList;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::path::Path;
 use substrate_subxt::balances::{Balances, BalancesEventsDecoder};
 use substrate_subxt::system::{System, SystemEventsDecoder};
-use substrate_subxt::DefaultNodeRuntime;
 use substrate_subxt::{ClientBuilder, NodeTemplateRuntime, PairSigner};
-use tendermint_light_client::{LightValidator, LightValidatorSet};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-use sp_core::Pair;
 
 #[module]
 pub trait TendermintClientModule: System + Balances {
@@ -76,7 +74,7 @@ impl SubstrateHandler {
         let iterator = simulation_data.split("\n\n");
         for str in iterator {
             let payload: SignedBlockWithAuthoritySet =
-                serde_json::from_str(str).map_err(to_string)?;
+                from_str(str).map_err(to_string)?;
             outchan.try_send(payload).map_err(to_string)?;
         }
         Ok(())
@@ -187,7 +185,7 @@ impl SubstrateHandler {
 
     pub async fn chain_send_handler(
         cfg: SubstrateConfig,
-        mut client_id: Option<String>,
+        client_id: Option<String>,
         inchan: Receiver<(TMHeader, Vec<tendermint::validator::Info>)>,
     ) -> Result<(), String> {
         let mut new_client = false;
@@ -207,7 +205,8 @@ impl SubstrateHandler {
             .map_err(to_string)?
             .as_secs();
         let client_id = id.clone().parse().map_err(to_string)?;
-        let (pair, _) = Sr25519Pair::from_phrase(cfg.seed.as_str(), None).map_err(|e| format!("{:?}", e))?;
+        let (pair, _) = Sr25519Pair::from_phrase(cfg.signer_seed.as_str(), None)
+            .map_err(|e| format!("{:?}", e))?;
         let signer = PairSigner::new(pair);
         let client = ClientBuilder::<NodeTemplateRuntime>::new()
             .set_url(cfg.ws_addr)
@@ -245,7 +244,13 @@ impl SubstrateHandler {
                     client_id: id.clone().parse().map_err(to_string)?,
                     next_validator_set: msg.1,
                 };
-                info!("{}", format!("Updating Cosmos light client with block at height: {}", update_client_payload.header.signed_header.header.height));
+                info!(
+                    "{}",
+                    format!(
+                        "Updating Cosmos light client with block at height: {}",
+                        update_client_payload.header.signed_header.header.height
+                    )
+                );
                 client
                     .update_client_and_watch(
                         &signer,

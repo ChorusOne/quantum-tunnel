@@ -9,10 +9,8 @@ use crate::cosmos::Handler as CosmosHandler;
 use crate::substrate::Handler as SubstrateHandler;
 use abscissa_core::{config, Command, FrameworkError, FrameworkErrorKind, Options, Runnable};
 use crossbeam_channel::unbounded;
-use futures::future::try_join_all;
-
 use abscissa_core::error::Context;
-use tokio::spawn;
+use std::env;
 
 /// `start` subcommand
 ///
@@ -38,39 +36,64 @@ impl Runnable for StartCmd {
         let (cosmos_chan_tx, cosmos_chan_rx) = unbounded();
         let (substrate_chan_tx, substrate_chan_rx) = unbounded();
 
-        let mut cosmos_client = None;
+        let mut cosmos_client_id = None;
         if !self.cosmos_client.is_empty() {
-            cosmos_client = Some(self.cosmos_client.clone());
+            cosmos_client_id = Some(self.cosmos_client.clone());
         }
 
-        let mut substrate_client = None;
+        let mut substrate_client_id = None;
         if !self.substrate_client.is_empty() {
-            substrate_client = Some(self.substrate_client.clone());
+            substrate_client_id = Some(self.substrate_client.clone());
         }
 
-        let mut threads = vec![];
-        threads.push(spawn(CosmosHandler::recv_handler(
-            config.cosmos.clone(),
-            cosmos_chan_tx,
-        )));
-        threads.push(spawn(SubstrateHandler::recv_handler(
-            config.substrate.clone(),
-            substrate_chan_tx,
-        )));
-        threads.push(spawn(SubstrateHandler::send_handler(
-            config.substrate.clone(),
-            substrate_client,
-            cosmos_chan_rx,
-        )));
-        threads.push(spawn(CosmosHandler::send_handler(
-            config.cosmos.clone(),
-            cosmos_client,
-            substrate_chan_rx,
-        )));
-
-        // catch interrupt here, and terminate threads.
-
-        try_join_all(threads).await.unwrap();
+        tokio::select! {
+            res = CosmosHandler::recv_handler(
+                config.cosmos.clone(),
+                cosmos_chan_tx,
+            ) => {
+                match res {
+                    Ok(_) => {
+                        // This should never happen
+                    },
+                    Err(msg) => panic!(format!("Error occurred while receiving data from Cosmos chain: {}", msg)),
+                }
+            },
+            res = SubstrateHandler::recv_handler(
+                config.substrate.clone(),
+                substrate_chan_tx,
+            ) => {
+                match res {
+                    Ok(_) => {
+                        // This should never happen
+                    },
+                    Err(msg) => panic!(format!("Error occurred while receiving data from Substrate chain: {}", msg)),
+                }
+            },
+            res = SubstrateHandler::send_handler(
+                config.substrate.clone(),
+                substrate_client_id,
+                cosmos_chan_rx,
+            ) => {
+                match res {
+                    Ok(_) => {
+                        // This should never happen
+                    },
+                    Err(msg) => panic!(format!("Error occurred while sending data to Substrate chain: {}", msg)),
+                }
+            },
+            res = CosmosHandler::send_handler(
+                config.cosmos.clone(),
+                cosmos_client_id,
+                substrate_chan_rx,
+            ) => {
+                match res {
+                    Ok(_) => {
+                        // This should never happen
+                    },
+                    Err(msg) => panic!(format!("Error occurred while sending data to cosmos chain: {}", msg)),
+                }
+            }
+        }
     }
 }
 
@@ -90,12 +113,31 @@ impl config::Override<QuantumTunnelConfig> for StartCmd {
                     None,
                 )))
             }
-            (CosmosChainConfig::Real(ref mut cfg), _) => {
-                if !self.cosmos_chain_id.is_empty() {
-                    cfg.chain_id = self.cosmos_chain_id.clone();
-                }
-            }
             _ => {}
+        }
+
+        if let CosmosChainConfig::Real(ref mut cfg) = config.cosmos {
+            if !self.cosmos_chain_id.is_empty() {
+                cfg.chain_id = self.cosmos_chain_id.clone();
+            }
+
+            // Let's read environment variables to get seed data.
+            cfg.signer_seed = env::var("COSMOS_SIGNER_SEED").map_err(|e| {
+                FrameworkError::from(Context::new(
+                    FrameworkErrorKind::ConfigError,
+                    Some(Box::new(e)),
+                ))
+            })?;
+        }
+
+        if let SubstrateChainConfig::Real(ref mut cfg) = config.substrate {
+            // Let's read environment variables to get seed data.
+            cfg.signer_seed = env::var("SUBSTRATE_SIGNER_SEED").map_err(|e| {
+                FrameworkError::from(Context::new(
+                    FrameworkErrorKind::ConfigError,
+                    Some(Box::new(e)),
+                ))
+            })?;
         }
 
         Ok(config)

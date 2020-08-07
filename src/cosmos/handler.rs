@@ -5,8 +5,9 @@ use crate::cosmos::types::{
     AccountQueryResponse, DecCoin, MsgCreateWasmClient, MsgUpdateWasmClient, StdFee, StdMsg,
     StdSignature, StdTx, TMHeader, TxRpcResponse,
 };
+use crate::error::ErrorKind;
 use crate::error::ErrorKind::{MalformedResponse, UnexpectedPayload};
-use crate::substrate::types::{SignedBlockWithAuthoritySet, CreateSignedBlockWithAuthoritySet};
+use crate::substrate::types::{CreateSignedBlockWithAuthoritySet, SignedBlockWithAuthoritySet};
 use crate::utils::{generate_client_id, to_string};
 use bytes::buf::Buf;
 use crossbeam_channel::{Receiver, Sender};
@@ -23,7 +24,7 @@ use std::string::ToString;
 use subtle_encoding::bech32;
 use tendermint::net::Address;
 use tendermint_light_client::{
-    AccountId, LightSignedHeader, LightValidator, LightValidatorSet, PublicKey,
+    AccountId, PublicKey,
 };
 use tendermint_rpc::{
     event_listener::{EventListener, EventSubscription, TMEventData::EventDataNewBlock},
@@ -113,7 +114,7 @@ impl CosmosHandler {
     ) -> Result<TMHeader, Box<dyn Error>> {
         let maybe_result = socket.get_event().await?;
         if maybe_result.is_none() {
-            // Return an error
+            return Err(ErrorKind::Io("unable to get events from socket".to_string()).into());
         }
         let result = maybe_result.unwrap();
         match result.data {
@@ -197,12 +198,7 @@ impl CosmosHandler {
                 }
             };
 
-            let txhash =
-                CosmosHandler::update_client(cfg.clone(), header, client_id.clone()).await?;
-
-            if false {
-                break;
-            }
+            CosmosHandler::update_client(cfg.clone(), header, client_id.clone()).await?;
         }
 
         Ok(())
@@ -213,22 +209,31 @@ impl CosmosHandler {
         header: SignedBlockWithAuthoritySet,
     ) -> Result<String, String> {
         let (signer, _, address) =
-            CosmosHandler::signer_from_seed(cfg.seed.clone()).map_err(to_string)?;
+            CosmosHandler::signer_from_seed(cfg.signer_seed.clone()).map_err(to_string)?;
 
         let client_id = generate_client_id();
 
         let msg = MsgCreateWasmClient {
-            header: CreateSignedBlockWithAuthoritySet{
+            header: CreateSignedBlockWithAuthoritySet {
                 block: header.block,
                 authority_set: header.authority_set,
                 set_id: header.set_id,
                 max_headers_allowed_to_store: 256,
-                max_headers_allowed_between_justifications: 512
+                max_headers_allowed_between_justifications: 512,
             },
             address: address.clone(),
-            trusting_period: parse(&cfg.trusting_period).map_err(to_string)?.as_nanos().to_string(),
-            max_clock_drift: parse(&cfg.max_clock_drift).map_err(to_string)?.as_nanos().to_string(),
-            unbonding_period: parse(&cfg.unbonding_period).map_err(to_string)?.as_nanos().to_string(),
+            trusting_period: parse(&cfg.trusting_period)
+                .map_err(to_string)?
+                .as_nanos()
+                .to_string(),
+            max_clock_drift: parse(&cfg.max_clock_drift)
+                .map_err(to_string)?
+                .as_nanos()
+                .to_string(),
+            unbonding_period: parse(&cfg.unbonding_period)
+                .map_err(to_string)?
+                .as_nanos()
+                .to_string(),
             client_id: client_id.clone(),
             wasm_id: cfg.wasm_id,
         };
@@ -260,7 +265,7 @@ impl CosmosHandler {
         client_id: String,
     ) -> Result<String, String> {
         let (signer, _, address) =
-            CosmosHandler::signer_from_seed(cfg.seed.clone()).map_err(to_string)?;
+            CosmosHandler::signer_from_seed(cfg.signer_seed.clone()).map_err(to_string)?;
 
         let msg = MsgUpdateWasmClient {
             header: header,
@@ -346,7 +351,7 @@ impl CosmosHandler {
         let acc_resp = hclient.request(acc_req).await.map_err(to_string)?;
         let acc_body = aggregate(acc_resp).await.map_err(to_string)?;
         let acc_rstr = String::from_utf8(acc_body.bytes().to_vec()).map_err(to_string)?;
-        let response: AccountQueryResponse = serde_json::from_str(&acc_rstr).unwrap();
+        let response: AccountQueryResponse = serde_json::from_str(&acc_rstr).map_err(to_string)?;
         Ok((
             response.result.value.account_number,
             response.result.value.sequence,

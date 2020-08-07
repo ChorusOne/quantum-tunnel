@@ -3,7 +3,6 @@ use k256::Secp256k1;
 use serde::{Deserialize, Serialize};
 use signatory::public_key::PublicKeyed;
 use signature::Signer;
-use tendermint_light_client::Signature;
 
 base64_serde_type!(Base64Standard, base64::STANDARD);
 

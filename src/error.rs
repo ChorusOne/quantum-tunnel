@@ -17,7 +17,7 @@ pub enum ErrorKind {
 
     /// Input/output error
     #[error("I/O error")]
-    Io,
+    Io(String),
 
     /// Unexpected Payload
     #[error("Unexpected payload")]
@@ -73,6 +73,6 @@ impl From<Context<ErrorKind>> for Error {
 
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Self {
-        ErrorKind::Io.context(err).into()
+        ErrorKind::Io("".to_string()).context(err).into()
     }
 }

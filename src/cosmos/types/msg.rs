@@ -1,5 +1,5 @@
 use crate::cosmos::types::Coins;
-use crate::substrate::types::{SignedBlockWithAuthoritySet, CreateSignedBlockWithAuthoritySet};
+use crate::substrate::types::{CreateSignedBlockWithAuthoritySet, SignedBlockWithAuthoritySet};
 use serde::{Deserialize, Serialize};
 
 pub trait StdMsg {
