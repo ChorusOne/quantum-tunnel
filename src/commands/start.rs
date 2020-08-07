@@ -9,12 +9,8 @@ use crate::cosmos::Handler as CosmosHandler;
 use crate::substrate::Handler as SubstrateHandler;
 use abscissa_core::{config, Command, FrameworkError, FrameworkErrorKind, Options, Runnable};
 use crossbeam_channel::unbounded;
-use futures::future::try_join_all;
-
 use abscissa_core::error::Context;
 use std::env;
-use tokio::spawn;
-use tokio::sync::oneshot;
 
 /// `start` subcommand
 ///
