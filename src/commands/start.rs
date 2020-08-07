@@ -51,51 +51,51 @@ impl Runnable for StartCmd {
 
         tokio::select! {
             res = CosmosHandler::recv_handler(
-            config.cosmos.clone(),
-            cosmos_chan_tx,
-        ) => {
-            match res {
-                Ok(_) => {
-                    // This should never happen
-                },
-                Err(msg) => panic!(format!("Error occurred while receiving data from Cosmos chain: {}", msg)),
+                config.cosmos.clone(),
+                cosmos_chan_tx,
+            ) => {
+                match res {
+                    Ok(_) => {
+                        // This should never happen
+                    },
+                    Err(msg) => panic!(format!("Error occurred while receiving data from Cosmos chain: {}", msg)),
+                }
+            },
+            res = SubstrateHandler::recv_handler(
+                config.substrate.clone(),
+                substrate_chan_tx,
+            ) => {
+                match res {
+                    Ok(_) => {
+                        // This should never happen
+                    },
+                    Err(msg) => panic!(format!("Error occurred while receiving data from Substrate chain: {}", msg)),
+                }
+            },
+            res = SubstrateHandler::send_handler(
+                config.substrate.clone(),
+                substrate_client,
+                cosmos_chan_rx,
+            ) => {
+                match res {
+                    Ok(_) => {
+                        // This should never happen
+                    },
+                    Err(msg) => panic!(format!("Error occurred while sending data to Substrate chain: {}", msg)),
+                }
+            },
+            res = CosmosHandler::send_handler(
+                config.cosmos.clone(),
+                cosmos_client,
+                substrate_chan_rx,
+            ) => {
+                match res {
+                    Ok(_) => {
+                        // This should never happen
+                    },
+                    Err(msg) => panic!(format!("Error occurred while sending data to cosmos chain: {}", msg)),
+                }
             }
-        },
-        res = SubstrateHandler::recv_handler(
-            config.substrate.clone(),
-            substrate_chan_tx,
-        ) => {
-            match res {
-                Ok(_) => {
-                    // This should never happen
-                },
-                Err(msg) => panic!(format!("Error occurred while receiving data from Substrate chain: {}", msg)),
-            }
-        },
-        res = SubstrateHandler::send_handler(
-            config.substrate.clone(),
-            substrate_client,
-            cosmos_chan_rx,
-        ) => {
-            match res {
-                Ok(_) => {
-                    // This should never happen
-                },
-                Err(msg) => panic!(format!("Error occurred while sending data to Substrate chain: {}", msg)),
-            }
-        },
-        res = CosmosHandler::send_handler(
-            config.cosmos.clone(),
-            cosmos_client,
-            substrate_chan_rx,
-        ) => {
-            match res {
-                Ok(_) => {
-                    // This should never happen
-                },
-                Err(msg) => panic!(format!("Error occurred while sending data to cosmos chain: {}", msg)),
-            }
-        },
         }
     }
 }
