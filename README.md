@@ -46,8 +46,8 @@ Let's take a look at an example configuration:
 }
 ```
 
-In this example, QuantumTunnel will connect to a *real* chain exposing rpc interface at port `26657`, but on substrate side it will read from the file `substrate_light_client_simulated_2.txt`.
-This config implies to QuantumTunnel that we want to test `substrate_light_client` running on cosmos chain with simulation data contained in `substrate_light_client_simulated_2.txt`.
+In this example, QuantumTunnel will connect to a *real* cosmos chain exposing rpc interface at port `26657`, but on substrate side it will read headers from the file `substrate_light_client_simulated_2.txt`.
+This config implies to QuantumTunnel that we want to test `substrate_light_client` running on cosmos chain with simulation data contained in `substrate_light_client_simulated_2.txt`. This feature is useful to test light client against invalid header sequence.
 
 
 [Abscissa]: https://github.com/iqlusioninc/abscissa
