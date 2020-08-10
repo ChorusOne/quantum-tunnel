@@ -7,9 +7,9 @@ use crate::prelude::*;
 use crate::config::{CosmosChainConfig, QuantumTunnelConfig, SubstrateChainConfig};
 use crate::cosmos::Handler as CosmosHandler;
 use crate::substrate::Handler as SubstrateHandler;
+use abscissa_core::error::Context;
 use abscissa_core::{config, Command, FrameworkError, FrameworkErrorKind, Options, Runnable};
 use crossbeam_channel::unbounded;
-use abscissa_core::error::Context;
 use std::env;
 
 /// `start` subcommand
