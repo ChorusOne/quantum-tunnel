@@ -73,8 +73,7 @@ impl SubstrateHandler {
             std::fs::read_to_string(Path::new(test_file.as_str())).map_err(to_string)?;
         let iterator = simulation_data.split("\n\n");
         for str in iterator {
-            let payload: SignedBlockWithAuthoritySet =
-                from_str(str).map_err(to_string)?;
+            let payload: SignedBlockWithAuthoritySet = from_str(str).map_err(to_string)?;
             outchan.try_send(payload).map_err(to_string)?;
         }
         Ok(())
@@ -113,15 +112,6 @@ impl SubstrateHandler {
                     continue;
                 }
             };
-            // let blocknum: BlockNumber = match json_msg["params"]["result"]["number"].as_str() {
-            //     None => { error!("Didn't include a block number, ignoring..."); continue; },
-            //     Some(x) => match u32::from_str_radix(&x[2..], 16) {
-            //         Ok(val) => val,
-            //         Err(e) => { error!("Unable to unmarshal blocknumber: {}", e); continue; }
-            //     }
-            //
-            //
-            // };
             let blocknum: String = match json_msg["params"]["result"]["number"].as_str() {
                 None => {
                     error!("Didn't include a block number, ignoring...");
@@ -216,6 +206,7 @@ impl SubstrateHandler {
         loop {
             let result = inchan.try_recv();
             let msg = if result.is_err() {
+                warn!("Did not receive any data from Cosmos receiver channel. Retrying in a second ...");
                 tokio::time::delay_for(core::time::Duration::new(1, 0)).await;
                 continue;
             } else {
@@ -270,7 +261,7 @@ async fn get_block_at_height(
 ) -> Result<(String, SignedBlock), Box<dyn Error>> {
     // TODO: just use the websocket for these requests.
     let client = Client::new();
-    let hash_req = Request::builder()
+    let block_hash_req = Request::builder()
         .method(Method::POST)
         .uri(rpc_addr.clone())
         .header("content-type", "application/json")
@@ -278,32 +269,24 @@ async fn get_block_at_height(
             r#"{{"jsonrpc":"2.0", "method": "chain_getBlockHash", "params": ["{}"], "id":"0"}}"#,
             block_num
         )))?;
-
-    //info!("req = {:?}", hash_req);
-    // Await the response...
-    let hash_resp = client.request(hash_req).await?;
-    let hash_body = aggregate(hash_resp).await?;
-    let hash_rstr = String::from_utf8(hash_body.bytes().to_vec()).unwrap(); // TODO: remove unwrap.
-    let hash_response: HashRpcResponse = from_str(&hash_rstr).unwrap(); // TODO: remove unwrap.
-                                                                        //info!("{}", hash_response.result);
-
-    let block_req = Request::builder()
+    let response = client.request(block_hash_req).await?;
+    let response_body = aggregate(response).await?;
+    let stringified_body = String::from_utf8(response_body.bytes().to_vec())?;
+    let block_hash_rpc_response: HashRpcResponse = from_str(&stringified_body)?;
+    let block_request = Request::builder()
         .method(Method::POST)
         .uri(rpc_addr.clone())
         .header("content-type", "application/json")
         .body(Body::from(format!(
             r#"{{"jsonrpc":"2.0", "method": "chain_getBlock", "params": ["{}"], "id":"0"}}"#,
-            hash_response.result
+            block_hash_rpc_response.result
         )))?;
-    //info!("req(2) = {:?}", block_req);
-    let block_resp = client.request(block_req).await?;
-    let block_body = aggregate(block_resp).await?;
-    let block_rstr = String::from_utf8(block_body.bytes().to_vec()).unwrap(); // TODO: remove unwrap.
-    let block_response: BlockRpcResponse = from_str(&block_rstr).unwrap(); // TODO: remove unwrap.
-                                                                           //info!("{:#?}", block_response.result);
-
-    info!("Got block for {}", block_num);
-    Ok((hash_response.result, block_response.result))
+    let response = client.request(block_request).await?;
+    let response_body = aggregate(response).await?;
+    let stringified_response = String::from_utf8(response_body.bytes().to_vec())?;
+    let block_rpc_response: BlockRpcResponse = from_str(&stringified_response)?;
+    info!("Got block at height: {}", block_num);
+    Ok((block_hash_rpc_response.result, block_rpc_response.result))
 }
 
 async fn get_authset_with_id(
@@ -318,11 +301,9 @@ async fn get_authset_with_id(
     .header("content-type", "application/json")
     .body(Body::from(format!(r#"{{"jsonrpc":"2.0", "method": "state_getStorage", "params": ["0x3a6772616e6470615f617574686f726974696573", "{}"], "id":"0"}}"#, block_hash)))?;
 
-    //info!("req = {:?}", set_req);
-    // Await the response...
     let set_resp = client.request(set_req).await?;
     let set_body = aggregate(set_resp).await?;
-    let set_rstr = String::from_utf8(set_body.bytes().to_vec()).unwrap(); // TODO: remove unwrap.
+    let set_rstr = String::from_utf8(set_body.bytes().to_vec())?;
     let set: AuthSetRpcResponse = from_str(&set_rstr).unwrap();
 
     let setid_req = Request::builder()
@@ -330,14 +311,15 @@ async fn get_authset_with_id(
     .uri(rpc_addr.clone())
     .header("content-type", "application/json")
     .body(Body::from(format!(r#"{{"jsonrpc":"2.0", "method": "state_getStorage", "params": ["0x2371e21684d2fae99bcb4d579242f74a8a2d09463effcc78a22d75b9cb87dffc", "{}"], "id":"0"}}"#, block_hash)))?;
-    //info!("req(2) = {:?}", setid_req);
     let setid_resp = client.request(setid_req).await?;
     let setid_body = aggregate(setid_resp).await?;
-    let setid_rstr = String::from_utf8(setid_body.bytes().to_vec()).unwrap(); // TODO: remove unwrap.
-    info!("{}", setid_rstr);
-
-    let setid_response: AuthSetIdRpcResponse = from_str(&setid_rstr).unwrap(); // TODO: remove unwrap.
-                                                                               //info!("{:#?}", setid_response.result);
-    info!("Got authset for {}", block_hash);
+    let setid_rstr = String::from_utf8(setid_body.bytes().to_vec())?;
+    let setid_response: AuthSetIdRpcResponse = from_str(&setid_rstr)?;
+    info!(
+        "Received set id: {} and authority set: {:?} for block with hash: {}",
+        setid_response.as_u64(),
+        set.get_authset(),
+        block_hash
+    );
     Ok((set.get_authset(), setid_response.as_u64()))
 }

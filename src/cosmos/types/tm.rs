@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tendermint::block::signed_header::SignedHeader;
-use tendermint_light_client::{ClientId};
+use tendermint_light_client::ClientId;
 
 /// TMHeader serializes to the same form as TMHeader in wormhole, but is using Tendermint types,
 /// not tendermint_light_client types - although structurewise, these are compatible.

@@ -23,9 +23,7 @@ use std::path::Path;
 use std::string::ToString;
 use subtle_encoding::bech32;
 use tendermint::net::Address;
-use tendermint_light_client::{
-    AccountId, PublicKey,
-};
+use tendermint_light_client::{AccountId, PublicKey};
 use tendermint_rpc::{
     event_listener::{EventListener, EventSubscription, TMEventData::EventDataNewBlock},
     Client,
@@ -93,7 +91,7 @@ impl CosmosHandler {
         loop {
             let response = Self::recv_data(&mut socket, &mut client).await;
             if response.is_err() {
-                error!("Error while processing tendermint node response.");
+                error!("Error while processing tendermint node response. Retrying...");
                 continue;
             }
             let header = response.map_err(to_string)?;
@@ -173,45 +171,40 @@ impl CosmosHandler {
         client_id: Option<String>,
         inchan: Receiver<SignedBlockWithAuthoritySet>,
     ) -> Result<(), String> {
-        let client_id = match client_id {
-            Some(val) => val,
-            None => {
-                // if we don't pass in an existing client_id, then try to fetch the first header, and send a create client message.
-                loop {
-                    match inchan.try_recv() {
-                        Ok(val) => break CosmosHandler::create_client(cfg.clone(), val).await?,
-                        Err(_) => {
-                            tokio::time::delay_for(core::time::Duration::new(1, 0)).await;
-                            continue;
-                        }
-                    }
-                }
-            }
+        let mut new_client = false;
+        let id = if client_id.is_none() {
+            new_client = true;
+            generate_client_id()
+        } else {
+            client_id.unwrap()
         };
 
         loop {
-            let header = match inchan.try_recv() {
-                Ok(val) => val,
-                Err(_) => {
-                    tokio::time::delay_for(core::time::Duration::new(1, 0)).await;
-                    continue;
-                }
+            let result = inchan.try_recv();
+            let msg = if result.is_err() {
+                warn!("Did not receive any data from Substrate receiver channel. Retrying in a second ...");
+                tokio::time::delay_for(core::time::Duration::new(1, 0)).await;
+                continue;
+            } else {
+                result.unwrap()
             };
 
-            CosmosHandler::update_client(cfg.clone(), header, client_id.clone()).await?;
+            if new_client {
+                new_client = false;
+                CosmosHandler::create_client(cfg.clone(), id.clone(), msg).await?;
+            } else {
+                CosmosHandler::update_client(cfg.clone(), msg, id.clone()).await?;
+            }
         }
-
-        Ok(())
     }
 
     pub async fn create_client(
         cfg: CosmosConfig,
+        client_id: String,
         header: SignedBlockWithAuthoritySet,
     ) -> Result<String, String> {
         let (signer, _, address) =
             CosmosHandler::signer_from_seed(cfg.signer_seed.clone()).map_err(to_string)?;
-
-        let client_id = generate_client_id();
 
         let msg = MsgCreateWasmClient {
             header: CreateSignedBlockWithAuthoritySet {
@@ -268,20 +261,21 @@ impl CosmosHandler {
             CosmosHandler::signer_from_seed(cfg.signer_seed.clone()).map_err(to_string)?;
 
         let msg = MsgUpdateWasmClient {
-            header: header,
+            header,
             address: address.clone(),
             client_id: client_id.clone(),
         };
 
-        let m = vec![serde_json::json!({"type": MsgUpdateWasmClient::get_type(), "value": &msg})];
-        let f = StdFee {
+        let msgs =
+            vec![serde_json::json!({"type": MsgUpdateWasmClient::get_type(), "value": &msg})];
+        let txfee = StdFee {
             gas: cfg.gas,
             amount: vec![DecCoin::from(cfg.gas_price).mul(cfg.gas as f64).to_coin()],
         };
 
         let retval = CosmosHandler::submit_tx(
-            m,
-            f,
+            msgs,
+            txfee,
             "".to_owned(),
             signer,
             address.clone(),
@@ -305,16 +299,17 @@ impl CosmosHandler {
     ) -> Result<String, String> {
         let mut tx = StdTx {
             msg: msgs.to_vec(),
-            fee: fee,
+            fee,
             signatures: vec![],
-            memo: memo,
+            memo,
         };
 
-        let (accnum, sequence) = CosmosHandler::get_account(address, lcd_addr.clone()).await?;
-        let bytes_to_sign = tx.get_sign_bytes(chain_id, accnum, sequence);
-        let sig_block = StdSignature::sign(signer, bytes_to_sign);
-        tx.signatures.push(sig_block.clone());
-        let wrapped_tx = serde_json::json!({"tx": &tx, "mode":"block", "account_number": &accnum.to_string(), "sequence": &sequence.to_string()});
+        let (account_number, sequence) =
+            CosmosHandler::get_account(address, lcd_addr.clone()).await?;
+        let bytes_to_sign = tx.get_sign_bytes(chain_id, account_number, sequence);
+        let signature_block = StdSignature::sign(signer, bytes_to_sign);
+        tx.signatures.push(signature_block.clone());
+        let wrapped_tx = serde_json::json!({"tx": &tx, "mode":"block", "account_number": &account_number.to_string(), "sequence": &sequence.to_string()});
 
         let json_bytes = serde_json::to_vec(&wrapped_tx).map_err(to_string)?;
 
@@ -332,8 +327,11 @@ impl CosmosHandler {
         let tx_rstr = String::from_utf8(tx_body.bytes().to_vec()).map_err(to_string)?;
         let tx_response: TxRpcResponse = serde_json::from_str(&tx_rstr).map_err(to_string)?;
         if tx_response.code != 0 {
-            error!("Tx failed: {:?}", tx_response.raw_log);
-            return Err(tx_response.txhash);
+            error!(
+                "Tx failed log: {:?} at height: {:?}",
+                tx_response.raw_log, tx_response.height
+            );
+            return Err(format!("Tx failed, response from node: {:?}", tx_response));
         };
         Ok(tx_response.txhash)
     }
