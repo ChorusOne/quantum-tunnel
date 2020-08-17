@@ -56,8 +56,6 @@ Quantum tunnel is asynchronus application relies on [tokio] to handle four tasks
 3. Substrate send handler: Receives new cosmos headers from Cosmos receive handler and send them to cosmos light client running inside the substrate chain.
 4. Substrate receive handler: Fetches new headers from substrate blockchain and send them to Cosmos send handler.
 
-
-
 [Abscissa]: https://github.com/iqlusioninc/abscissa
 [tendermint_light_client]: https://github.com/ChorusOne/tendermint-light-client
 [substrate_light_client]: https://github.com/ChorusOne/substrate-light-client
