@@ -32,12 +32,18 @@ use url::Url;
 
 pub struct CosmosHandler {}
 impl CosmosHandler {
-    fn get_tm_addr(url: Url) -> Address {
-        Address::Tcp {
+    fn parse_tm_addr(url: Url) -> Result<Address, String> {
+        if url.host_str().is_none() {
+            return Err(format!("missing host string in url: {}", url));
+        }
+        if url.port().is_none() {
+            return Err(format!("missing port in url: {}", url));
+        }
+        Ok(Address::Tcp {
             host: url.host_str().unwrap().to_string(),
             port: url.port().unwrap(),
             peer_id: None,
-        }
+        })
     }
 
     pub async fn recv_handler(
@@ -75,7 +81,7 @@ impl CosmosHandler {
         outchan: Sender<(TMHeader, Vec<tendermint::validator::Info>)>,
     ) -> Result<(), String> {
         let rpc_url = Url::parse(&cfg.rpc_addr).map_err(to_string)?;
-        let tm_addr = CosmosHandler::get_tm_addr(rpc_url);
+        let tm_addr = CosmosHandler::parse_tm_addr(rpc_url)?;
         let mut client = Client::new(tm_addr.clone());
         info!("opening websocket to to {:?}", tm_addr.clone());
         let mut socket = EventListener::connect(tm_addr.clone())
@@ -91,10 +97,13 @@ impl CosmosHandler {
         loop {
             let response = Self::recv_data(&mut socket, &mut client).await;
             if response.is_err() {
-                error!("Error while processing tendermint node response. Retrying...");
+                error!(
+                    "Error: {} while processing tendermint node response",
+                    response.err().unwrap()
+                );
                 continue;
             }
-            let header = response.map_err(to_string)?;
+            let header = response.unwrap();
             if previous_block.is_none() {
                 previous_block = Some(header);
                 continue;

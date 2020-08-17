@@ -51,22 +51,16 @@ impl Runnable for StartCmd {
                 config.cosmos.clone(),
                 cosmos_chan_tx,
             ) => {
-                match res {
-                    Ok(_) => {
-                        // This should never happen
-                    },
-                    Err(msg) => panic!(format!("Error occurred while receiving data from Cosmos chain: {}", msg)),
+                if res.is_err() {
+                    panic!(format!("Error occurred while receiving data from Cosmos chain: {}", res.err().unwrap()));
                 }
             },
             res = SubstrateHandler::recv_handler(
                 config.substrate.clone(),
                 substrate_chan_tx,
             ) => {
-                match res {
-                    Ok(_) => {
-                        // This should never happen
-                    },
-                    Err(msg) => panic!(format!("Error occurred while receiving data from Substrate chain: {}", msg)),
+                if res.is_err() {
+                    panic!(format!("Error occurred while receiving data from Substrate chain: {}", res.err().unwrap()));
                 }
             },
             res = SubstrateHandler::send_handler(
@@ -74,11 +68,8 @@ impl Runnable for StartCmd {
                 substrate_client_id,
                 cosmos_chan_rx,
             ) => {
-                match res {
-                    Ok(_) => {
-                        // This should never happen
-                    },
-                    Err(msg) => panic!(format!("Error occurred while sending data to Substrate chain: {}", msg)),
+                if res.is_err() {
+                    panic!(format!("Error occurred while sending data to Substrate chain: {}", res.err().unwrap()));
                 }
             },
             res = CosmosHandler::send_handler(
@@ -86,11 +77,8 @@ impl Runnable for StartCmd {
                 cosmos_client_id,
                 substrate_chan_rx,
             ) => {
-                match res {
-                    Ok(_) => {
-                        // This should never happen
-                    },
-                    Err(msg) => panic!(format!("Error occurred while sending data to cosmos chain: {}", msg)),
+                if res.is_err() {
+                    panic!(format!("Error occurred while sending data to cosmos chain: {}", res.err().unwrap()));
                 }
             }
         }
