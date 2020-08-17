@@ -51,10 +51,10 @@ This config implies to QuantumTunnel that we want to test `substrate_light_clien
 
 ## How it works?
 Quantum tunnel is asynchronus application relies on [tokio] to handle four tasks, which communicates with each other using [crossbeam] channels:
-1. Cosmos send handler: Receives substrate header data from Substrate receive handler and sends it to substrate light client running inside the cosmos chain. 
-2. Cosmos receive handler: Fetches new headers from cosmos blockchain and sends it to Substrate send handler.
-3. Substrate send handler: Receives new cosmos headers from Cosmos receive handler and sends it to cosmos light client running inside the substrate chain.
-4. Substrate receive handler: Fetches new headers from substrate blockchain and sends it to Cosmos send handler.
+1. Cosmos send handler: Receives substrate header data from Substrate receive handler and send them to substrate light client running inside the cosmos chain. 
+2. Cosmos receive handler: Fetches new headers from cosmos blockchain and send them to Substrate send handler.
+3. Substrate send handler: Receives new cosmos headers from Cosmos receive handler and send them to cosmos light client running inside the substrate chain.
+4. Substrate receive handler: Fetches new headers from substrate blockchain and send them to Cosmos send handler.
 
 
 
