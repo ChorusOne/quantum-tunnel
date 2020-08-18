@@ -98,26 +98,38 @@ impl SubstrateHandler {
             let blocknum = json["params"]["result"]["number"]
                 .as_str()
                 .map(|str| str.to_string())
-                .ok_or_else(|| "Didn't include a block number, ignoring...".to_string())?;
+                .ok_or_else(|| format!("ignoring json since it did not include the block number. Received json:{:?}", json))?;
 
             let (blockhash, block) = get_block_at_height(cfg.rpc_addr.clone(), blocknum.clone())
                 .await
-                .map_err(|e| format!("Unable to get block at height: {}", e))?;
+                .map_err(|e| {
+                    format!("Unable to get block at height: {}, error: {}", blocknum, e)
+                })?;
 
-            let (authset, set_id) = get_authset_with_id(cfg.rpc_addr.clone(), blockhash.clone())
-                .await
-                .map_err(|e| format!("Unable to fetch authset: {}", e))?;
+            let (authority_set, set_id) =
+                get_authset_with_id(cfg.rpc_addr.clone(), blockhash.clone())
+                    .await
+                    .map_err(|e| {
+                        format!(
+                            "Unable to fetch authority set at height: {}, error: {}",
+                            blocknum, e
+                        )
+                    })?;
 
             Ok(SignedBlockWithAuthoritySet::from_parts(
-                block, authset, set_id,
+                block,
+                authority_set,
+                set_id,
             ))
         }
 
         while let Some(msg) = socket.next().await {
             if let Ok(msg) = msg {
-                info!("server received: {}", msg);
+                info!("Received message from substrate chain: {:?}", msg);
                 match process_msg(&cfg, msg.clone()).await {
-                    Ok(sbwas) => outchan.try_send(sbwas).map_err(to_string)?,
+                    Ok(signed_block_with_authset) => outchan
+                        .try_send(signed_block_with_authset)
+                        .map_err(to_string)?,
                     Err(err) => error!("Error: {}", err),
                 }
             }
