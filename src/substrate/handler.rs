@@ -6,8 +6,8 @@ use crate::substrate::types::{
 };
 use crate::utils::{generate_client_id, to_string};
 use bytes::buf::Buf;
-use crossbeam_channel::{Receiver, Sender};
-use futures::{SinkExt, StreamExt};
+use crossbeam_channel::{Receiver, Sender, TrySendError};
+use futures::{future, FutureExt, SinkExt, StreamExt, TryFutureExt};
 use hyper::{body::aggregate, Body, Client, Method, Request};
 use log::*;
 use parity_scale_codec::{Decode, Encode};
@@ -89,61 +89,53 @@ impl SubstrateHandler {
         let subscribe_message = Message::Text(r#"{"jsonrpc":"2.0", "method":"chain_subscribeFinalizedHeads", "params":[], "id": "0"}"#.to_string());
         socket.send(subscribe_message).await.map_err(to_string)?;
 
+        async fn process_msg(
+            cfg: &SubstrateConfig,
+            msg: Message,
+        ) -> Result<SignedBlockWithAuthoritySet, String> {
+            let msgtext = msg.to_text().map_err(to_string)?;
+            let json = from_str::<Value>(msgtext).map_err(to_string)?;
+            let blocknum = json["params"]["result"]["number"]
+                .as_str()
+                .map(|str| str.to_string())
+                .ok_or_else(|| format!("ignoring json since it did not include the block number. Received json:{:?}", json))?;
+
+            let (blockhash, block) = get_block_at_height(cfg.rpc_addr.clone(), blocknum.clone())
+                .await
+                .map_err(|e| {
+                    format!("Unable to get block at height: {}, error: {}", blocknum, e)
+                })?;
+
+            let (authority_set, set_id) =
+                get_authset_with_id(cfg.rpc_addr.clone(), blockhash.clone())
+                    .await
+                    .map_err(|e| {
+                        format!(
+                            "Unable to fetch authority set at height: {}, error: {}",
+                            blocknum, e
+                        )
+                    })?;
+
+            Ok(SignedBlockWithAuthoritySet::from_parts(
+                block,
+                authority_set,
+                set_id,
+            ))
+        }
+
         while let Some(msg) = socket.next().await {
-            let msg = match msg {
-                Err(e) => {
-                    error!("Error on server stream: {:?}", e);
-
-                    // Errors returned directly through the AsyncRead/Write API are fatal, generally an error on the underlying
-                    // transport.
-                    //
-                    continue;
+            if let Ok(msg) = msg {
+                info!("Received message from substrate chain: {:?}", msg);
+                match process_msg(&cfg, msg.clone()).await {
+                    Ok(signed_block_with_authset) => outchan
+                        .try_send(signed_block_with_authset)
+                        .map_err(to_string)?,
+                    Err(err) => error!("Error: {}", err),
                 }
-
-                Ok(m) => m,
-            };
-
-            info!("server received: {}", msg);
-            let msgtext = msg.to_text().ok().unwrap();
-            let json_msg: Value = match from_str(msgtext) {
-                Ok(val) => val,
-                Err(e) => {
-                    error!("Bad json unmarshal: {}", e);
-                    continue;
-                }
-            };
-            let blocknum: String = match json_msg["params"]["result"]["number"].as_str() {
-                None => {
-                    error!("Didn't include a block number, ignoring...");
-                    continue;
-                }
-                Some(x) => x.to_string(),
-            };
-
-            let (blockhash, block) =
-                match get_block_at_height(cfg.rpc_addr.clone(), blocknum.clone()).await {
-                    Ok(val) => val,
-                    Err(e) => {
-                        error!("Unable to get block at height: {}", e);
-                        continue;
-                    }
-                };
-            let (authset, set_id) =
-                match get_authset_with_id(cfg.rpc_addr.clone(), blockhash.clone()).await {
-                    Ok(val) => val,
-                    Err(e) => {
-                        error!("Unable to fetch authset: {}", e);
-                        continue;
-                    }
-                };
-
-            let sbwas = SignedBlockWithAuthoritySet::from_parts(block, authset, set_id);
-            outchan.try_send(sbwas).map_err(to_string)?;
+            }
         }
 
         Ok(())
-
-        // safe to drop the TCP connection
     }
 
     fn generate_client_id(length: usize) -> String {
