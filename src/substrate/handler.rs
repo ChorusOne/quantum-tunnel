@@ -89,36 +89,37 @@ impl SubstrateHandler {
         let subscribe_message = Message::Text(r#"{"jsonrpc":"2.0", "method":"chain_subscribeFinalizedHeads", "params":[], "id": "0"}"#.to_string());
         socket.send(subscribe_message).await.map_err(to_string)?;
 
-        while let Some(msg) = socket.next().await {
-            let result = future::ready(msg.map_err(to_string)).and_then(|msg| {
-                future::ready(msg.to_text().map_err(to_string).and_then(|text| {
-                    from_str(text).map_err(to_string)
-                }).and_then(|json_msg: Value| {
-                    info!("parsed received message into: {:?}", json_msg);
-                    json_msg["params"]["result"]["number"].as_str().ok_or(format!("unable to parse block number from json message: {:?}", json_msg)).map(|num| num.to_string())
-                }))
-            }).and_then(|block_num| {
-                info!("received block number: {:?}", block_num);
-                get_block_at_height(cfg.rpc_addr.clone(), block_num.to_string()).map_err(to_string)
-            }).and_then(|(block_hash, block)| {
-                async {
-                    info!("got block hash: {} for block number: {}", block_hash, block.block.header.number);
-                    get_authset_with_id(cfg.rpc_addr.clone(), block_hash).await.map(|(authority_list, set_id)| {
-                        (block, authority_list, set_id)
-                    }).map_err(to_string)
-                }
-            }).and_then(|(block, authority_list, set_id)| {
-                info!("Sending authority list: {:?}, set id: {:?}, block number: {} to cosmos chain handler", authority_list, set_id, block.block.header.number);
-                let signed_block_with_authority_set = SignedBlockWithAuthoritySet::from_parts(block, authority_list, set_id);
-                future::ready(outchan.try_send(signed_block_with_authority_set).map_err(to_string))
-            }).await;
+        async fn process_msg(
+            cfg: &SubstrateConfig,
+            msg: Message,
+        ) -> Result<SignedBlockWithAuthoritySet, String> {
+            let msgtext = msg.to_text().map_err(to_string)?;
+            let json = from_str::<Value>(msgtext).map_err(to_string)?;
+            let blocknum = json["params"]["result"]["number"]
+                .as_str()
+                .map(|str| str.to_string())
+                .ok_or_else(|| "Didn't include a block number, ignoring...".to_string())?;
 
-            if result.is_err() {
-                error!(
-                    "Error occurred while sending data to cosmos chain handler: {:?}",
-                    result.err().unwrap()
-                );
-                continue;
+            let (blockhash, block) = get_block_at_height(cfg.rpc_addr.clone(), blocknum.clone())
+                .await
+                .map_err(|e| format!("Unable to get block at height: {}", e))?;
+
+            let (authset, set_id) = get_authset_with_id(cfg.rpc_addr.clone(), blockhash.clone())
+                .await
+                .map_err(|e| format!("Unable to fetch authset: {}", e))?;
+
+            Ok(SignedBlockWithAuthoritySet::from_parts(
+                block, authset, set_id,
+            ))
+        }
+
+        while let Some(msg) = socket.next().await {
+            if let Ok(msg) = msg {
+                info!("server received: {}", msg);
+                match process_msg(&cfg, msg.clone()).await {
+                    Ok(sbwas) => outchan.try_send(sbwas).map_err(to_string)?,
+                    Err(err) => error!("Error: {}", err),
+                }
             }
         }
 
