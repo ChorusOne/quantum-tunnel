@@ -91,13 +91,12 @@ impl SubstrateHandler {
 
         while let Some(msg) = socket.next().await {
             let result = future::ready(msg.map_err(to_string)).and_then(|msg| {
-                let output = msg.to_text().map_err(to_string).and_then(|text| {
+                future::ready(msg.to_text().map_err(to_string).and_then(|text| {
                     from_str(text).map_err(to_string)
                 }).and_then(|json_msg: Value| {
                     info!("parsed received message into: {:?}", json_msg);
                     json_msg["params"]["result"]["number"].as_str().ok_or(format!("unable to parse block number from json message: {:?}", json_msg)).map(|num| num.to_string())
-                });
-                future::ready(output)
+                }))
             }).and_then(|block_num| {
                 info!("received block number: {:?}", block_num);
                 get_block_at_height(cfg.rpc_addr.clone(), block_num.to_string()).map_err(to_string)
