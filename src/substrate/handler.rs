@@ -7,7 +7,7 @@ use crate::substrate::types::{
 use crate::utils::{generate_client_id, to_string};
 use bytes::buf::Buf;
 use crossbeam_channel::{Receiver, Sender, TrySendError};
-use futures::{SinkExt, StreamExt, TryFutureExt, FutureExt, future};
+use futures::{future, FutureExt, SinkExt, StreamExt, TryFutureExt, TryStreamExt};
 use hyper::{body::aggregate, Body, Client, Method, Request};
 use log::*;
 use parity_scale_codec::{Decode, Encode};
@@ -23,7 +23,7 @@ use std::path::Path;
 use substrate_subxt::balances::{Balances, BalancesEventsDecoder};
 use substrate_subxt::system::{System, SystemEventsDecoder};
 use substrate_subxt::{ClientBuilder, NodeTemplateRuntime, PairSigner};
-use tokio_tungstenite::{connect_async, tungstenite::Message, tungstenite};
+use tokio_tungstenite::{connect_async, tungstenite, tungstenite::Message};
 
 #[module]
 pub trait TendermintClientModule: System + Balances {
@@ -90,30 +90,18 @@ impl SubstrateHandler {
         socket.send(subscribe_message).await.map_err(to_string)?;
 
         while let Some(msg) = socket.next().await {
-            let result = msg.map_err(to_string).and_then(|msg| {
-                info!("server received: {}", msg);
-                msg.to_text().map_err(to_string).map(|out| out.to_string())
-            }).and_then(|text| {
-                from_str(text.as_str()).map_err(to_string)
-            }).and_then(|json_msg: Value| {
-                info!("parsed received message into: {:?}", json_msg);
-                let possible_block_num = json_msg["params"]["result"]["number"].as_str();
-                if possible_block_num.is_none() {
-                    Err(format!("unable to parse block number from json message: {:?}", json_msg))
-                } else {
-                    let block_num = possible_block_num.unwrap().to_string();
-                    info!("extracted block number: {} from parsed message: {:?}", block_num, json_msg);
-                    Ok(block_num)
-                }
-            });
-            if result.is_err() {
-                error!("Error occurred while receiving data from substrate chain: {:?}", result.err().unwrap());
-                continue;
-            }
-
-            let block_num = result.unwrap();
-
-            let result = get_block_at_height(cfg.rpc_addr.clone(), block_num.to_string()).map_err(to_string).and_then(|(block_hash, block)| {
+            let result = future::ready(msg.map_err(to_string)).and_then(|msg| {
+                let output = msg.to_text().map_err(to_string).and_then(|text| {
+                    from_str(text).map_err(to_string)
+                }).and_then(|json_msg: Value| {
+                    info!("parsed received message into: {:?}", json_msg);
+                    json_msg["params"]["result"]["number"].as_str().ok_or(format!("unable to parse block number from json message: {:?}", json_msg)).map(|num| num.to_string())
+                });
+                future::ready(output)
+            }).and_then(|block_num| {
+                info!("received block number: {:?}", block_num);
+                get_block_at_height(cfg.rpc_addr.clone(), block_num.to_string()).map_err(to_string)
+            }).and_then(|(block_hash, block)| {
                 async {
                     info!("got block hash: {} for block number: {}", block_hash, block.block.header.number);
                     get_authset_with_id(cfg.rpc_addr.clone(), block_hash).await.map(|(authority_list, set_id)| {
@@ -127,75 +115,15 @@ impl SubstrateHandler {
             }).await;
 
             if result.is_err() {
-                error!("Error occurred while sending data to cosmos chain handler: {:?}", result.err().unwrap());
+                error!(
+                    "Error occurred while sending data to cosmos chain handler: {:?}",
+                    result.err().unwrap()
+                );
                 continue;
             }
-
-            /*get_block_at_height(cfg.rpc_addr.clone(), block_num.to_string()).and_then(|(block_hash, block)| {
-                info!("got block hash: {} for block number: {}", block_hash, block.block.header.number);
-                get_authset_with_id(cfg.rpc_addr.clone(), block_hash.clone()).await.and_then(|(authority_list, set_id)| {
-                    info!("Got authority list: {:?} and set id: {:?} for block number: {}", authority_list, set_id, block.block.header.number);
-                    Ok((block, authority_list, set_id))
-                })
-            }).and_then(|(block, authority_list, set_id)| {
-                info!("Sending authority list: {:?}, set id: {:?}, block number: {} to cosmos chain handler", authority_list, set_id, block.block.header.number);
-                outchan.try_send(SignedBlockWithAuthoritySet::from_parts(block, authset, set_id))
-            });*/
-
-            /*let msg = match msg {
-                Err(e) => {
-                    error!("Error on server stream: {:?}", e);
-
-                    // Errors returned directly through the AsyncRead/Write API are fatal, generally an error on the underlying
-                    // transport.
-                    //
-                    continue;
-                }
-
-                Ok(m) => m,
-            };
-
-            info!("server received: {}", msg);
-            let msgtext = msg.to_text().ok().unwrap();
-            let json_msg: Value = match from_str(msgtext) {
-                Ok(val) => val,
-                Err(e) => {
-                    error!("Bad json unmarshal: {}", e);
-                    continue;
-                }
-            };
-            let blocknum: String = match json_msg["params"]["result"]["number"].as_str() {
-                None => {
-                    error!("Didn't include a block number, ignoring...");
-                    continue;
-                }
-                Some(x) => x.to_string(),
-            };
-
-            let (blockhash, block) =
-                match get_block_at_height(cfg.rpc_addr.clone(), blocknum.clone()).await {
-                    Ok(val) => val,
-                    Err(e) => {
-                        error!("Unable to get block at height: {}", e);
-                        continue;
-                    }
-                };
-            let (authset, set_id) =
-                match get_authset_with_id(cfg.rpc_addr.clone(), blockhash.clone()).await {
-                    Ok(val) => val,
-                    Err(e) => {
-                        error!("Unable to fetch authset: {}", e);
-                        continue;
-                    }
-                };
-
-            let sbwas = SignedBlockWithAuthoritySet::from_parts(block, authset, set_id);
-            outchan.try_send(sbwas).map_err(to_string)?;*/
         }
 
         Ok(())
-
-        // safe to drop the TCP connection
     }
 
     fn generate_client_id(length: usize) -> String {
