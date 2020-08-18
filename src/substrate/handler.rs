@@ -7,7 +7,7 @@ use crate::substrate::types::{
 use crate::utils::{generate_client_id, to_string};
 use bytes::buf::Buf;
 use crossbeam_channel::{Receiver, Sender, TrySendError};
-use futures::{future, FutureExt, SinkExt, StreamExt, TryFutureExt, TryStreamExt};
+use futures::{future, FutureExt, SinkExt, StreamExt, TryFutureExt};
 use hyper::{body::aggregate, Body, Client, Method, Request};
 use log::*;
 use parity_scale_codec::{Decode, Encode};
@@ -23,7 +23,7 @@ use std::path::Path;
 use substrate_subxt::balances::{Balances, BalancesEventsDecoder};
 use substrate_subxt::system::{System, SystemEventsDecoder};
 use substrate_subxt::{ClientBuilder, NodeTemplateRuntime, PairSigner};
-use tokio_tungstenite::{connect_async, tungstenite, tungstenite::Message};
+use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 #[module]
 pub trait TendermintClientModule: System + Balances {
