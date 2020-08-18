@@ -6,8 +6,8 @@ use crate::substrate::types::{
 };
 use crate::utils::{generate_client_id, to_string};
 use bytes::buf::Buf;
-use crossbeam_channel::{Receiver, Sender};
-use futures::{SinkExt, StreamExt};
+use crossbeam_channel::{Receiver, Sender, TrySendError};
+use futures::{SinkExt, StreamExt, TryFutureExt, FutureExt, future};
 use hyper::{body::aggregate, Body, Client, Method, Request};
 use log::*;
 use parity_scale_codec::{Decode, Encode};
@@ -23,7 +23,7 @@ use std::path::Path;
 use substrate_subxt::balances::{Balances, BalancesEventsDecoder};
 use substrate_subxt::system::{System, SystemEventsDecoder};
 use substrate_subxt::{ClientBuilder, NodeTemplateRuntime, PairSigner};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio_tungstenite::{connect_async, tungstenite::Message, tungstenite};
 
 #[module]
 pub trait TendermintClientModule: System + Balances {
@@ -90,7 +90,59 @@ impl SubstrateHandler {
         socket.send(subscribe_message).await.map_err(to_string)?;
 
         while let Some(msg) = socket.next().await {
-            let msg = match msg {
+            let result = msg.map_err(to_string).and_then(|msg| {
+                info!("server received: {}", msg);
+                msg.to_text().map_err(to_string).map(|out| out.to_string())
+            }).and_then(|text| {
+                from_str(text.as_str()).map_err(to_string)
+            }).and_then(|json_msg: Value| {
+                info!("parsed received message into: {:?}", json_msg);
+                let possible_block_num = json_msg["params"]["result"]["number"].as_str();
+                if possible_block_num.is_none() {
+                    Err(format!("unable to parse block number from json message: {:?}", json_msg))
+                } else {
+                    let block_num = possible_block_num.unwrap().to_string();
+                    info!("extracted block number: {} from parsed message: {:?}", block_num, json_msg);
+                    Ok(block_num)
+                }
+            });
+            if result.is_err() {
+                error!("Error occurred while receiving data from substrate chain: {:?}", result.err().unwrap());
+                continue;
+            }
+
+            let block_num = result.unwrap();
+
+            let result = get_block_at_height(cfg.rpc_addr.clone(), block_num.to_string()).map_err(to_string).and_then(|(block_hash, block)| {
+                async {
+                    info!("got block hash: {} for block number: {}", block_hash, block.block.header.number);
+                    get_authset_with_id(cfg.rpc_addr.clone(), block_hash).await.map(|(authority_list, set_id)| {
+                        (block, authority_list, set_id)
+                    }).map_err(to_string)
+                }
+            }).and_then(|(block, authority_list, set_id)| {
+                info!("Sending authority list: {:?}, set id: {:?}, block number: {} to cosmos chain handler", authority_list, set_id, block.block.header.number);
+                let signed_block_with_authority_set = SignedBlockWithAuthoritySet::from_parts(block, authority_list, set_id);
+                future::ready(outchan.try_send(signed_block_with_authority_set).map_err(to_string))
+            }).await;
+
+            if result.is_err() {
+                error!("Error occurred while sending data to cosmos chain handler: {:?}", result.err().unwrap());
+                continue;
+            }
+
+            /*get_block_at_height(cfg.rpc_addr.clone(), block_num.to_string()).and_then(|(block_hash, block)| {
+                info!("got block hash: {} for block number: {}", block_hash, block.block.header.number);
+                get_authset_with_id(cfg.rpc_addr.clone(), block_hash.clone()).await.and_then(|(authority_list, set_id)| {
+                    info!("Got authority list: {:?} and set id: {:?} for block number: {}", authority_list, set_id, block.block.header.number);
+                    Ok((block, authority_list, set_id))
+                })
+            }).and_then(|(block, authority_list, set_id)| {
+                info!("Sending authority list: {:?}, set id: {:?}, block number: {} to cosmos chain handler", authority_list, set_id, block.block.header.number);
+                outchan.try_send(SignedBlockWithAuthoritySet::from_parts(block, authset, set_id))
+            });*/
+
+            /*let msg = match msg {
                 Err(e) => {
                     error!("Error on server stream: {:?}", e);
 
@@ -138,7 +190,7 @@ impl SubstrateHandler {
                 };
 
             let sbwas = SignedBlockWithAuthoritySet::from_parts(block, authset, set_id);
-            outchan.try_send(sbwas).map_err(to_string)?;
+            outchan.try_send(sbwas).map_err(to_string)?;*/
         }
 
         Ok(())
