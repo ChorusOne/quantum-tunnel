@@ -1,6 +1,6 @@
 # QuantumTunnel
 QuantumTunnel is a basic relayer developed to connect [tendermint_light_client] and [substrate_light_client] with any cosmos and substrate chain respectively. It can also be used
-to test either substrate_light_client or tendermint_light_client by simulating their target chains.
+to test either substrate_light_client or tendermint_light_client by simulating their target chains. Refer [here](#how-it-works) to know how it works under the hood.
 
 This application is authored using [Abscissa], a Rust application framework.
 
@@ -49,7 +49,15 @@ Let's take a look at an example configuration:
 In this example, QuantumTunnel will connect to a *real* cosmos chain exposing rpc interface at port `26657`, but on substrate side it will read headers from the file `substrate_light_client_simulated_2.txt`.
 This config implies to QuantumTunnel that we want to test `substrate_light_client` running on cosmos chain with simulation data contained in `substrate_light_client_simulated_2.txt`. This feature is useful to test light client against invalid header sequence.
 
+## How it works?
+Quantum tunnel is asynchronus application relies on [tokio] to handle four tasks, which communicates with each other using [crossbeam] channels:
+1. Cosmos send handler: Receives substrate header data from Substrate receive handler and send them to substrate light client running inside the cosmos chain. 
+2. Cosmos receive handler: Fetches new headers from cosmos blockchain and send them to Substrate send handler.
+3. Substrate send handler: Receives new cosmos headers from Cosmos receive handler and send them to cosmos light client running inside the substrate chain.
+4. Substrate receive handler: Fetches new headers from substrate blockchain and send them to Cosmos send handler.
 
 [Abscissa]: https://github.com/iqlusioninc/abscissa
 [tendermint_light_client]: https://github.com/ChorusOne/tendermint-light-client
 [substrate_light_client]: https://github.com/ChorusOne/substrate-light-client
+[tokio]: https://github.com/tokio-rs/tokio
+[crossbeam]: https://github.com/crossbeam-rs/crossbeam
