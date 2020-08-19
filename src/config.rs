@@ -18,7 +18,7 @@ pub enum CosmosChainConfig {
     Real(CosmosConfig),
 
     #[serde(rename = "simulation")]
-    Simulation(String),
+    Simulation(CosmosSimulationConfig),
 }
 
 impl Default for CosmosChainConfig {
@@ -33,7 +33,7 @@ pub enum SubstrateChainConfig {
     Real(SubstrateConfig),
 
     #[serde(rename = "simulation")]
-    Simulation(String),
+    Simulation(SubstrateSimulationConfig),
 }
 
 impl Default for SubstrateChainConfig {
@@ -69,6 +69,9 @@ pub struct CosmosConfig {
     pub max_clock_drift: String,
     /// identifier of the wasm blob uploaded into the wormhole module on cosmos chain.
     pub wasm_id: u32,
+    /// Flag indicating whether opposite side is simulation
+    #[serde(skip)]
+    pub is_other_side_simulation: bool,
 }
 
 // Default values for Cosmos Chain Configuration
@@ -86,8 +89,19 @@ impl Default for CosmosConfig {
             unbonding_period: "504h".to_owned(),
             max_clock_drift: "30s".to_owned(),
             wasm_id: 1,
+            is_other_side_simulation: false,
         }
     }
+}
+
+/// Cosmos Chain Simulation Configuration
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CosmosSimulationConfig {
+    /// Path of the simulation file
+    pub simulation_file_path: String,
+    /// Simulation run till this specific height
+    pub should_run_till_height: u64,
 }
 
 /// Substrate Chain Configuration
@@ -107,6 +121,9 @@ pub struct SubstrateConfig {
     pub unbonding_period: String,
     /// clock drift tolerance.
     pub max_clock_drift: String,
+    /// Flag indicating whether opposite side is simulation or not
+    #[serde(skip)]
+    pub is_other_side_simulation: bool,
 }
 
 impl Default for SubstrateConfig {
@@ -118,6 +135,17 @@ impl Default for SubstrateConfig {
             trusting_period: "72h".into(),
             unbonding_period: "504h".into(),
             max_clock_drift: "30s".into(),
+            is_other_side_simulation: false,
         }
     }
+}
+
+/// Substrate Chain Simulation Configuration
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubstrateSimulationConfig {
+    /// Path of the simulation file
+    pub simulation_file_path: String,
+    /// Simulation run till this specific height
+    pub should_run_till_height: u64,
 }

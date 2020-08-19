@@ -1,13 +1,16 @@
 {
   "cosmos": {
-    "simulation": "cosmos_light_client_simulated_2.txt"
+    "simulation": {
+      "simulation_file_path": "test_data/cosmos_light_client_simulated_2.txt",
+      "should_run_till_height": 210
+    }
   },
   "substrate": {
     "real": {
       "ws_addr": "ws://localhost:9944/",
       "rpc_addr": "http://localhost:9933/",
-      "trusting_period": "72h",
-      "unbonding_period": "504h",
+      "trusting_period": "72000h",
+      "unbonding_period": "90400h",
       "max_clock_drift": "30s"
     }
   }

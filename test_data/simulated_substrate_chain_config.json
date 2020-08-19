@@ -14,6 +14,9 @@
     }
   },
   "substrate": {
-    "simulation": "substrate_light_client_simulated_2.txt"
+    "simulation": {
+      "simulation_file_path": "test_data/substrate_light_client_simulated_2.txt",
+      "should_run_till_height": 7
+    }
   }
 }
