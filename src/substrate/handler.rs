@@ -227,7 +227,7 @@ impl SubstrateHandler {
                     Self::chain_send_handler(cfg, client_id, inchan, monitoring_outchan).await
                 }
             }
-            SubstrateChainConfig::Simulation(_test_file) => futures::future::pending().await,
+            SubstrateChainConfig::Simulation(_cfg) => futures::future::pending().await,
         }
     }
 

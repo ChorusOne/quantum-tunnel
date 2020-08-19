@@ -240,7 +240,7 @@ impl CosmosHandler {
                     Self::chain_send_handler(cfg, client_id, inchan, monitoring_outchan).await
                 }
             }
-            CosmosChainConfig::Simulation(_test_file) => futures::future::pending().await,
+            CosmosChainConfig::Simulation(_cfg) => futures::future::pending().await,
         }
     }
 
