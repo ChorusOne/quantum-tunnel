@@ -36,6 +36,13 @@ impl Runnable for StartCmd {
         let (cosmos_chan_tx, cosmos_chan_rx) = unbounded();
         let (substrate_chan_tx, substrate_chan_rx) = unbounded();
 
+        // Simulation monitoring channels are used to send information about consumed blocks to
+        // simulation handler which enables simulation handler to detect successful or failure
+        // simulation.
+        // Sender goes to recv_handler and Receiver goes to send_handler
+        // This channels will be ignored if it is live chain
+        let (simulation_monitoring_tx, simulation_monitoring_rx) = unbounded();
+
         let mut cosmos_client_id = None;
         if !self.cosmos_client.is_empty() {
             cosmos_client_id = Some(self.cosmos_client.clone());
@@ -50,6 +57,7 @@ impl Runnable for StartCmd {
             res = CosmosHandler::recv_handler(
                 config.cosmos.clone(),
                 cosmos_chan_tx,
+                simulation_monitoring_rx.clone()
             ) => {
                 if res.is_err() {
                     panic!(format!("Error occurred while receiving data from Cosmos chain: {}", res.err().unwrap()));
@@ -58,6 +66,7 @@ impl Runnable for StartCmd {
             res = SubstrateHandler::recv_handler(
                 config.substrate.clone(),
                 substrate_chan_tx,
+                simulation_monitoring_rx.clone()
             ) => {
                 if res.is_err() {
                     panic!(format!("Error occurred while receiving data from Substrate chain: {}", res.err().unwrap()));
@@ -67,6 +76,7 @@ impl Runnable for StartCmd {
                 config.substrate.clone(),
                 substrate_client_id,
                 cosmos_chan_rx,
+                simulation_monitoring_tx.clone()
             ) => {
                 if res.is_err() {
                     panic!(format!("Error occurred while sending data to Substrate chain: {}", res.err().unwrap()));
@@ -76,6 +86,7 @@ impl Runnable for StartCmd {
                 config.cosmos.clone(),
                 cosmos_client_id,
                 substrate_chan_rx,
+                simulation_monitoring_tx.clone()
             ) => {
                 if res.is_err() {
                     panic!(format!("Error occurred while sending data to cosmos chain: {}", res.err().unwrap()));
@@ -93,6 +104,7 @@ impl config::Override<QuantumTunnelConfig> for StartCmd {
         &self,
         mut config: QuantumTunnelConfig,
     ) -> Result<QuantumTunnelConfig, FrameworkError> {
+        let mut is_live = false;
         match (&mut config.cosmos, &mut config.substrate) {
             // Both configuration cannot be simulation at the same time
             (CosmosChainConfig::Simulation(_), SubstrateChainConfig::Simulation(_)) => {
@@ -100,6 +112,9 @@ impl config::Override<QuantumTunnelConfig> for StartCmd {
                     FrameworkErrorKind::ConfigError,
                     None,
                 )))
+            }
+            (CosmosChainConfig::Real(_), SubstrateChainConfig::Real(_)) => {
+                is_live = true;
             }
             _ => {}
         }
@@ -116,6 +131,8 @@ impl config::Override<QuantumTunnelConfig> for StartCmd {
                     Some(Box::new(e)),
                 ))
             })?;
+
+            cfg.is_other_side_simulation = !is_live;
         }
 
         if let SubstrateChainConfig::Real(ref mut cfg) = config.substrate {
@@ -126,6 +143,8 @@ impl config::Override<QuantumTunnelConfig> for StartCmd {
                     Some(Box::new(e)),
                 ))
             })?;
+
+            cfg.is_other_side_simulation = !is_live;
         }
 
         Ok(config)

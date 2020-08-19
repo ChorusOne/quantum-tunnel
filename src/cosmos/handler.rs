@@ -10,7 +10,7 @@ use crate::error::ErrorKind::{MalformedResponse, UnexpectedPayload};
 use crate::substrate::types::{CreateSignedBlockWithAuthoritySet, SignedBlockWithAuthoritySet};
 use crate::utils::{generate_client_id, to_string};
 use bytes::buf::Buf;
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use futures::try_join;
 use hyper::{body::aggregate, Body, Client as HClient, Method, Request};
 use log::*;
@@ -49,29 +49,83 @@ impl CosmosHandler {
     pub async fn recv_handler(
         cfg: CosmosChainConfig,
         outchan: Sender<(TMHeader, Vec<tendermint::validator::Info>)>,
+        monitoring_inchan: Receiver<(bool, u64)>,
     ) -> Result<(), String> {
         match cfg {
             CosmosChainConfig::Real(cfg) => Self::chain_recv_handler(cfg, outchan).await,
-            CosmosChainConfig::Simulation(test_file) => {
-                Self::simulate_recv_handler(test_file, outchan).await
+            CosmosChainConfig::Simulation(cfg) => {
+                Self::simulate_recv_handler(
+                    cfg.simulation_file_path,
+                    cfg.should_run_till_height,
+                    outchan,
+                    monitoring_inchan,
+                )
+                .await
             }
         }
     }
 
     pub async fn simulate_recv_handler(
         test_file: String,
+        should_run_till_height: u64,
         outchan: Sender<(TMHeader, Vec<tendermint::validator::Info>)>,
+        monitoring_inchan: Receiver<(bool, u64)>,
     ) -> Result<(), String> {
         let simulation_data =
             std::fs::read_to_string(Path::new(test_file.as_str())).map_err(to_string)?;
-        let iterator = simulation_data.split("\n\n");
-        for str in iterator {
+        let stringified_headers: Vec<&str> = simulation_data.split("\n\n").collect();
+        let number_of_simulated_headers = stringified_headers.len();
+        for str in stringified_headers {
             let payload: Message = serde_json::from_str(str).map_err(to_string)?;
             outchan
                 .try_send((payload.header, payload.next_validators))
                 .map_err(to_string)?;
         }
 
+        let mut number_of_headers_ingested_till = 0;
+        let mut successfully_ingested_till = 0;
+        // Let's wait for the receive handler on other side to catch up
+        loop {
+            let result = monitoring_inchan.try_recv();
+            if result.is_err() {
+                match result.err().unwrap() {
+                    TryRecvError::Empty => {
+                        // Let's wait for data to appear
+                        tokio::time::delay_for(core::time::Duration::new(1, 0)).await;
+                    }
+                    TryRecvError::Disconnected => {
+                        return Err(
+                            "monitoring channel of substrate send handler is disconnected"
+                                .to_string(),
+                        );
+                    }
+                }
+                continue;
+            }
+
+            let (terminated, height) = result.unwrap();
+            if !terminated {
+                successfully_ingested_till = height;
+                number_of_headers_ingested_till += 1;
+            }
+
+            if terminated || (number_of_headers_ingested_till == number_of_simulated_headers) {
+                if height != should_run_till_height {
+                    return Err(format!("Ingesting simulation data failed on cosmos chain. Expected to ingest headers till height: {}, ingested till: {}", should_run_till_height, successfully_ingested_till));
+                } else {
+                    info!(
+                        "Cosmos headers simulated successfully. Ingested headers till height: {}",
+                        successfully_ingested_till
+                    );
+                }
+                break;
+            } else {
+                info!(
+                    "cosmos light client has successfully ingested header at: {}",
+                    successfully_ingested_till
+                );
+            }
+        }
         Ok(())
     }
 
@@ -163,22 +217,38 @@ impl CosmosHandler {
         cfg: CosmosChainConfig,
         client_id: Option<String>,
         inchan: Receiver<SignedBlockWithAuthoritySet>,
+        monitoring_outchan: Sender<(bool, u64)>,
     ) -> Result<(), String> {
         match cfg {
-            CosmosChainConfig::Real(cfg) => Self::chain_send_handler(cfg, client_id, inchan).await,
-            CosmosChainConfig::Simulation(_test_file) => Self::simulate_send_handler().await,
+            CosmosChainConfig::Real(cfg) => {
+                if cfg.is_other_side_simulation {
+                    // Swallow up the error to prevent quantum tunnel to terminate. This will give simulation data reader the chance to print the result.
+                    let result = Self::chain_send_handler(
+                        cfg,
+                        client_id,
+                        inchan,
+                        monitoring_outchan.clone(),
+                    )
+                    .await;
+                    monitoring_outchan.try_send((true, 0)).map_err(to_string)?;
+                    if result.is_err() {
+                        error!("Error occurred while trying to send simulated cosmos data to cosmos chain: {}", result.err().unwrap());
+                    }
+                    futures::future::pending::<()>().await;
+                    Ok(())
+                } else {
+                    Self::chain_send_handler(cfg, client_id, inchan, monitoring_outchan).await
+                }
+            }
+            CosmosChainConfig::Simulation(_test_file) => futures::future::pending().await,
         }
-    }
-
-    // Nothing happens for now, as the simulation isn't interactive.
-    pub async fn simulate_send_handler() -> Result<(), String> {
-        Ok(())
     }
 
     pub async fn chain_send_handler(
         cfg: CosmosConfig,
         client_id: Option<String>,
         inchan: Receiver<SignedBlockWithAuthoritySet>,
+        monitoring_outchan: Sender<(bool, u64)>,
     ) -> Result<(), String> {
         let mut new_client = false;
         let id = if client_id.is_none() {
@@ -198,11 +268,19 @@ impl CosmosHandler {
                 result.unwrap()
             };
 
+            let current_height = msg.block.block.header.number;
+
             if new_client {
                 new_client = false;
                 CosmosHandler::create_client(cfg.clone(), id.clone(), msg).await?;
             } else {
                 CosmosHandler::update_client(cfg.clone(), msg, id.clone()).await?;
+            }
+
+            if cfg.is_other_side_simulation {
+                monitoring_outchan
+                    .try_send((false, current_height as u64))
+                    .map_err(to_string)?;
             }
         }
     }
