@@ -103,14 +103,14 @@ impl CosmosHandler {
                 continue;
             }
 
-            let (terminated, height) = result.unwrap();
+            let (terminated, reported_height) = result.unwrap();
             if !terminated {
-                successfully_ingested_till = height;
+                successfully_ingested_till = reported_height;
                 number_of_headers_ingested_till += 1;
             }
 
             if terminated || (number_of_headers_ingested_till == number_of_simulated_headers) {
-                if height != should_run_till_height {
+                if successfully_ingested_till != should_run_till_height {
                     return Err(format!("Ingesting simulation data failed on cosmos chain. Expected to ingest headers till height: {}, ingested till: {}", should_run_till_height, successfully_ingested_till));
                 } else {
                     info!(
