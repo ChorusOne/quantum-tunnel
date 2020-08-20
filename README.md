@@ -50,7 +50,7 @@ Let's take a look at an example configuration:
 ```
 
 In this example, QuantumTunnel will connect to a *real* cosmos chain exposing rpc interface at port `26657`, but on substrate side it will read headers from the file `substrate_light_client_simulated_2.txt`.
-This config implies to QuantumTunnel that we want to test `substrate_light_client` running on cosmos chain with simulation data contained in `substrate_light_client_simulated_2.txt` and the simulation will be considered success only if the `substrate_light_client` will run till height `7`. This feature is useful to test light client against invalid header sequence.
+This config implies to QuantumTunnel that we want to test `substrate_light_client` running on cosmos chain with simulation data contained in `substrate_light_client_simulated_2.txt` and the simulation will be considered success only if the `substrate_light_client` will run till height `7`. This feature is useful to test light client against invalid header sequence. If the simulation is successful quantum tunnel will exit with zero, otherwise it will panic and exit with non-zero status code.
 
 ## How it works?
 Quantum tunnel is asynchronus application relies on [tokio] to handle four tasks, which communicates with each other using [crossbeam] channels:
