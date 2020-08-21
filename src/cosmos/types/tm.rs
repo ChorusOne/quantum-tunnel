@@ -11,6 +11,7 @@ pub struct TMHeader {
     pub validator_set: Vec<tendermint::validator::Info>,
 }
 
+/// Create client payload for initializing tendermint light client
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TMCreateClientPayload {
     pub header: TMHeader,
@@ -20,6 +21,7 @@ pub struct TMCreateClientPayload {
     pub client_id: ClientId,
 }
 
+/// Update client payload for updating tendermint light client
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TMUpdateClientPayload {
     pub header: TMHeader,

@@ -46,6 +46,9 @@ impl CosmosHandler {
         })
     }
 
+    /// Receive handler entrypoint
+    /// Branches to different internal methods depending upon whether
+    /// configuration is `Real` or `Simulation`
     pub async fn recv_handler(
         cfg: CosmosChainConfig,
         outchan: Sender<(TMHeader, Vec<tendermint::validator::Info>)>,
@@ -65,6 +68,10 @@ impl CosmosHandler {
         }
     }
 
+    /// Simulation receive handler, which as the name suggests
+    /// take the chain headers from simulation target instead of
+    /// live chain. It also monitors send handler of opposite chain to detect
+    /// whether or not simulation is successful.
     pub async fn simulate_recv_handler(
         test_file: String,
         should_run_till_height: u64,
@@ -213,6 +220,11 @@ impl CosmosHandler {
         Ok((signer, tmpubkey, address))
     }
 
+    /// Send handler entrypoint
+    /// Branches to different internal methods depending upon whether
+    /// configuration is `Real` or `Simulation`
+    /// If other side is simulation, some additional bookkeeping is done to
+    /// make sure `simulation_recv_handler` gets accurate data.
     pub async fn send_handler(
         cfg: CosmosChainConfig,
         client_id: Option<String>,
@@ -230,20 +242,44 @@ impl CosmosHandler {
                         monitoring_outchan.clone(),
                     )
                     .await;
+                    // Send signal to simulation_recv_handler that receive handler is terminated
                     monitoring_outchan.try_send((true, 0)).map_err(to_string)?;
                     if result.is_err() {
                         error!("Error occurred while trying to send simulated cosmos data to cosmos chain: {}", result.err().unwrap());
                     }
+                    // This gives simulation_recv_handler time to print result and then exit.
                     futures::future::pending::<()>().await;
                     Ok(())
                 } else {
                     Self::chain_send_handler(cfg, client_id, inchan, monitoring_outchan).await
                 }
             }
-            CosmosChainConfig::Simulation(_cfg) => futures::future::pending().await,
+            // If we are running simulation, we just drain incoming headers.
+            CosmosChainConfig::Simulation(_cfg) => {
+                loop {
+                    let result = inchan.try_recv();
+                    if result.is_err() {
+                        match result.err().unwrap() {
+                            TryRecvError::Disconnected => {
+                                return Err(
+                                    "Substrate chain-data channel's input end is disconnected."
+                                        .to_string(),
+                                );
+                            }
+                            _ => {}
+                        }
+                    }
+                    // Compulsory delay of 1 second to prevent busy loop.
+                    tokio::time::delay_for(core::time::Duration::new(1, 0)).await;
+                }
+            }
         }
     }
 
+    /// Transforms header data received from opposite chain to
+    /// light client payload and sends it to substrate light client running in
+    /// cosmos chain.
+    /// If client id is not passed, first payload sent would be for creating the client.
     pub async fn chain_send_handler(
         cfg: CosmosConfig,
         client_id: Option<String>,
@@ -261,9 +297,18 @@ impl CosmosHandler {
         loop {
             let result = inchan.try_recv();
             let msg = if result.is_err() {
-                warn!("Did not receive any data from Substrate receiver channel. Retrying in a second ...");
-                tokio::time::delay_for(core::time::Duration::new(1, 0)).await;
-                continue;
+                match result.err().unwrap() {
+                    TryRecvError::Disconnected => {
+                        return Err(
+                            "Substrate chain-data channel's input end is disconnected.".to_string()
+                        );
+                    }
+                    _ => {
+                        warn!("Did not receive any data from Substrate chain-data channel. Retrying in a second ...");
+                        tokio::time::delay_for(core::time::Duration::new(1, 0)).await;
+                        continue;
+                    }
+                }
             } else {
                 result.unwrap()
             };
