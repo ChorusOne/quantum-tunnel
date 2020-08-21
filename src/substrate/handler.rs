@@ -128,7 +128,7 @@ impl SubstrateHandler {
                 break;
             } else {
                 info!(
-                    "cosmos light client has successfully ingested header at: {}",
+                    "substrate light client has successfully ingested header at: {}",
                     successfully_ingested_till
                 );
             }
