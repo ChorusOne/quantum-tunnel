@@ -56,6 +56,7 @@ pub struct Coin {
 pub type Coins = Vec<Coin>;
 
 impl Coin {
+    #[allow(dead_code)] // Used only in test
     pub fn from(str: String) -> Self {
         info!("{}", str);
         let re = Regex::new(r"^(\d+)([a-z]+)$").unwrap();
@@ -63,18 +64,6 @@ impl Coin {
         Coin {
             amount: str::parse(caps.get(1).unwrap().as_str()).unwrap(),
             denom: caps.get(2).unwrap().as_str().to_string(),
-        }
-    }
-
-    pub fn mul(&mut self, mult: u64) -> &Self {
-        self.amount = self.amount * mult;
-        self
-    }
-
-    pub fn to_dec_coin(&self) -> DecCoin {
-        DecCoin {
-            amount: self.amount as f64,
-            denom: self.denom.clone(),
         }
     }
 }
@@ -120,11 +109,11 @@ fn std_sign_bytes(
 ) -> Vec<u8> {
     let s = StdSignDoc {
         account_number: acc_num,
-        chain_id: chain_id,
+        chain_id,
         fee: json!(fee),
-        memo: memo,
-        msgs: msgs,
-        sequence: sequence,
+        memo,
+        msgs,
+        sequence,
     };
 
     serde_json::to_vec(&s).unwrap()
@@ -134,8 +123,8 @@ fn std_sign_bytes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cosmos::types::{MsgSend, StdMsg};
-    use std::collections::HashMap;
+    use crate::cosmos::types::msg::MsgSend;
+    use crate::cosmos::types::StdMsg;
     use std::str::from_utf8;
 
     #[test]

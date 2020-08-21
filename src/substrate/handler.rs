@@ -6,14 +6,12 @@ use crate::substrate::types::{
 };
 use crate::utils::{generate_client_id, to_string};
 use bytes::buf::Buf;
-use crossbeam_channel::{Receiver, Sender, TryRecvError, TrySendError};
-use futures::future::Pending;
-use futures::{future, FutureExt, SinkExt, StreamExt, TryFutureExt};
+use crossbeam_channel::{Receiver, Sender, TryRecvError};
+use futures::{SinkExt, StreamExt};
 use hyper::{body::aggregate, Body, Client, Method, Request};
 use log::*;
 use parity_scale_codec::{Decode, Encode};
 use parse_duration::parse;
-use rand::Rng;
 use serde_json::{from_str, Value};
 use sp_core::sr25519::Pair as Sr25519Pair;
 use sp_core::Pair;
@@ -24,7 +22,6 @@ use std::path::Path;
 use substrate_subxt::balances::{Balances, BalancesEventsDecoder};
 use substrate_subxt::system::{System, SystemEventsDecoder};
 use substrate_subxt::{ClientBuilder, NodeTemplateRuntime, PairSigner};
-use tendermint::lite::Header;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 #[module]
@@ -55,6 +52,9 @@ impl TendermintClientModule for NodeTemplateRuntime {
 pub struct SubstrateHandler {}
 
 impl SubstrateHandler {
+    /// Receive handler entrypoint
+    /// Branches to different internal methods depending upon whether
+    /// configuration is `Real` or `Simulation`
     pub async fn recv_handler(
         cfg: SubstrateChainConfig,
         outchan: Sender<SignedBlockWithAuthoritySet>,
@@ -74,6 +74,10 @@ impl SubstrateHandler {
         }
     }
 
+    /// Simulation receive handler, which as the name suggests
+    /// take the chain headers from simulation target instead of
+    /// live chain. It also monitors send handler of opposite chain to detect
+    /// whether or not simulation is successful.
     pub async fn simulate_recv_handler(
         test_file: String,
         should_run_till_height: u64,
@@ -132,7 +136,9 @@ impl SubstrateHandler {
         Ok(())
     }
 
-    /// Subscribes to new blocks from Websocket, and pushes TMHeader objects into the Channel.
+    /// Chain receive handler connects to live chain.
+    /// It subscribes to finalized headers from Websocket, retrieves block and authority set for
+    /// each header and pass it to substrate light client.
     pub async fn chain_recv_handler(
         cfg: SubstrateConfig,
         outchan: Sender<SignedBlockWithAuthoritySet>,
@@ -191,15 +197,11 @@ impl SubstrateHandler {
         Ok(())
     }
 
-    fn generate_client_id(length: usize) -> String {
-        let mut thread_rng = rand::rngs::ThreadRng::default();
-        let mut id = String::new();
-        for _ in 0..length {
-            id.push(char::from(thread_rng.gen_range(97, 123)));
-        }
-        id
-    }
-
+    /// Send handler entrypoint
+    /// Branches to different internal methods depending upon whether
+    /// configuration is `Real` or `Simulation`
+    /// If other side is simulation, some additional bookkeeping is done to
+    /// make sure `simulation_recv_handler` gets accurate data.
     pub async fn send_handler(
         cfg: SubstrateChainConfig,
         client_id: Option<String>,
@@ -217,20 +219,44 @@ impl SubstrateHandler {
                         monitoring_outchan.clone(),
                     )
                     .await;
+                    // Send signal to simulation_recv_handler that receive handler is terminated
                     monitoring_outchan.try_send((true, 0)).map_err(to_string)?;
                     if result.is_err() {
                         error!("Error occurred while trying to send simulated cosmos data to substrate chain: {}", result.err().unwrap());
                     }
+                    // This gives simulation_recv_handler time to print result and then exit.
                     futures::future::pending::<()>().await;
                     Ok(())
                 } else {
                     Self::chain_send_handler(cfg, client_id, inchan, monitoring_outchan).await
                 }
             }
-            SubstrateChainConfig::Simulation(_cfg) => futures::future::pending().await,
+            // If we are running simulation, we cannot ingest any headers.
+            SubstrateChainConfig::Simulation(_cfg) => {
+                loop {
+                    let result = inchan.try_recv();
+                    if result.is_err() {
+                        match result.err().unwrap() {
+                            TryRecvError::Disconnected => {
+                                return Err(
+                                    "cosmos chain-data channel's input end is disconnected."
+                                        .to_string(),
+                                );
+                            }
+                            _ => {}
+                        }
+                    }
+                    // Compulsory delay of 1 second to not enter in busy loop.
+                    tokio::time::delay_for(core::time::Duration::new(1, 0)).await;
+                }
+            }
         }
     }
 
+    /// Transforms header data received from opposite chain to
+    /// light client payload and sends it to tendermint light client running in
+    /// substrate chain.
+    /// If client id is not passed, first payload sent would be for creating the client.
     pub async fn chain_send_handler(
         cfg: SubstrateConfig,
         client_id: Option<String>,
@@ -265,9 +291,18 @@ impl SubstrateHandler {
         loop {
             let result = inchan.try_recv();
             let msg = if result.is_err() {
-                warn!("Did not receive any data from Cosmos receiver channel. Retrying in a second ...");
-                tokio::time::delay_for(core::time::Duration::new(1, 0)).await;
-                continue;
+                match result.err().unwrap() {
+                    TryRecvError::Disconnected => {
+                        return Err(
+                            "cosmos chain-data channel's input end is disconnected.".to_string()
+                        );
+                    }
+                    _ => {
+                        warn!("Did not receive any data from Cosmos chain-data channel. Retrying in a second ...");
+                        tokio::time::delay_for(core::time::Duration::new(1, 0)).await;
+                        continue;
+                    }
+                }
             } else {
                 result.unwrap()
             };

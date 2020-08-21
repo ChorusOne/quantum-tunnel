@@ -1,6 +1,7 @@
 use crate::cosmos::types::tm::TMHeader;
 use serde::{Deserialize, Serialize};
 
+/// Simulation message read by `simulation_recv_handler`
 #[derive(Serialize, Deserialize)]
 pub struct Message {
     pub(crate) header: TMHeader,

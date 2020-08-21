@@ -8,6 +8,7 @@ pub trait StdMsg {
         Self: Sized;
 }
 
+/// Payload to initialize substrate light client
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MsgCreateWasmClient {
     pub client_id: String,
@@ -26,6 +27,7 @@ impl StdMsg for MsgCreateWasmClient {
     }
 }
 
+/// Payload to update substrate light client
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MsgUpdateWasmClient {
     pub client_id: String,

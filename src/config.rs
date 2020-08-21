@@ -6,17 +6,21 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct QuantumTunnelConfig {
-    /// Configurtion pertaining to the cosmos chain.
+    /// Configuration pertaining to the cosmos chain.
     pub cosmos: CosmosChainConfig,
     /// Configuration pertaining to the substrate chain.
     pub substrate: SubstrateChainConfig,
 }
 
+/// Cosmos chain specific configuration enum
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum CosmosChainConfig {
+    /// Quantum tunnel will try to connect to live channel
     #[serde(rename = "real")]
     Real(CosmosConfig),
 
+    /// Quantum tunnel will read from target pointed
+    /// by `CosmosSimulationConfig`
     #[serde(rename = "simulation")]
     Simulation(CosmosSimulationConfig),
 }
@@ -27,11 +31,15 @@ impl Default for CosmosChainConfig {
     }
 }
 
+/// Substrate chain specific configuration enum
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SubstrateChainConfig {
+    /// Quantum tunnel will try to connect to live channel
     #[serde(rename = "real")]
     Real(SubstrateConfig),
 
+    /// Quantum tunnel will read from target pointed
+    /// by `SubstrateSimulationConfig`
     #[serde(rename = "simulation")]
     Simulation(SubstrateSimulationConfig),
 }
@@ -52,7 +60,7 @@ pub struct CosmosConfig {
     pub rpc_addr: String,
     /// address of cosmos rest service
     pub lcd_addr: String,
-    /// seed file of relayer account on cosmos chain. temporary, not suitable for production use.
+    /// Bip39 seed of relayer account on cosmos chain. Does not serialize/deserialize.
     #[serde(skip)]
     pub signer_seed: String,
     /// gas amount to send with transactions.
@@ -69,7 +77,7 @@ pub struct CosmosConfig {
     pub max_clock_drift: String,
     /// identifier of the wasm blob uploaded into the wormhole module on cosmos chain.
     pub wasm_id: u32,
-    /// Flag indicating whether opposite side is simulation
+    /// Flag indicating whether opposite side is simulation. Does not serialize/deserialize.
     #[serde(skip)]
     pub is_other_side_simulation: bool,
 }
@@ -112,7 +120,7 @@ pub struct SubstrateConfig {
     pub ws_addr: String,
     /// address of rpc socket on substrate chain
     pub rpc_addr: String,
-    /// private seed of relayer on substrate side. subkey compatible, e.g. //Alice//hard; temporary, TODO: remove me
+    /// Bip39 seed of relayer account on substrate chain. Does not serialize/deserialize.
     #[serde(skip)]
     pub signer_seed: String,
     /// trusting period, e.g. 72h; must be less that unbonding_period
@@ -121,7 +129,7 @@ pub struct SubstrateConfig {
     pub unbonding_period: String,
     /// clock drift tolerance.
     pub max_clock_drift: String,
-    /// Flag indicating whether opposite side is simulation or not
+    /// Flag indicating whether opposite side is simulation or not. Does not serialize/deserialize.
     #[serde(skip)]
     pub is_other_side_simulation: bool,
 }
@@ -146,6 +154,7 @@ impl Default for SubstrateConfig {
 pub struct SubstrateSimulationConfig {
     /// Path of the simulation file
     pub simulation_file_path: String,
-    /// Simulation run till this specific height
+    /// Simulation should run till this specific height
+    /// to be considered successful.
     pub should_run_till_height: u64,
 }
