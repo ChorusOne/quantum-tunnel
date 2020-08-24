@@ -54,10 +54,10 @@ This config implies to QuantumTunnel that we want to test `substrate_light_clien
 
 ## How it works?
 Quantum tunnel is asynchronus application relies on [tokio] to handle four tasks, which communicates with each other using [crossbeam] channels:
-1. Cosmos `send` handler: Receives substrate header data from Substrate `receive` handler and send them to substrate light client running inside the cosmos chain. 
-2. Cosmos `receive` handler: Fetches new headers from cosmos blockchain or simulation file and send them to Substrate `send` handler.
-3. Substrate `send` handler: Receives new cosmos headers from Cosmos receive handler and send them to cosmos light client running inside the substrate chain.
-4. Substrate `receive` handler: Fetches new headers from substrate blockchain or simulation file and send them to Cosmos `send` handler.
+1. Cosmos `send` handler: Receives substrate header data from Substrate receive handler and `send` them to substrate light client running inside the cosmos chain. 
+2. Cosmos `receive` handler: `Receives` new headers from cosmos blockchain or simulation file and send them to Substrate send handler.
+3. Substrate `send` handler: Receives new cosmos headers from Cosmos receive handler and `send` them to cosmos light client running inside the substrate chain.
+4. Substrate `receive` handler: `Receives` new headers from substrate blockchain or simulation file and send them to Cosmos send handler.
 
 Each side's handlers can start in one of the two modes: 
 - Simulation mode: In simulation mode, `receive` handler reads header data from file instead of querying live chain and also keeps track of how many blocks has been consumed by opposite chain's `send` handler to determine result of the simulation. `send` handler in simulation mode just drains header data sent by opposite chain's `receive` handler, to prevent crossbeam channel to accumulate large number of unsent data. At max only one chain's handlers can run in `simulation` mode.
