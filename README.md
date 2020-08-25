@@ -7,7 +7,7 @@ This application is authored using [Abscissa], a Rust application framework.
 ## Compilation
 To build QuantumTunnel you need to have rust nightly toolchain installed. You can find instructions [here](https://github.com/rust-lang/rustup#installing-nightly).
 After you have nightly toolchain installed, just run:
-`cargo +nightly build`
+`make build`
 
 ## Running
 QuantumTunnel relies on json files to read chain connection configuration, passed by `-c` command line argument.
