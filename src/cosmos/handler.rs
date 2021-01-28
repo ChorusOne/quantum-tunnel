@@ -15,9 +15,8 @@ use futures::try_join;
 use hyper::{body::aggregate, Body, Client as HClient, Method, Request};
 use log::*;
 use parse_duration::parse;
-use signatory::ecdsa::SecretKey;
-use signatory::public_key::PublicKeyed;
-use signatory_secp256k1;
+use k256::{elliptic_curve::SecretKey, ecdsa::SigningKey};
+use k256::EncodedPoint as Secp256k1;
 use std::error::Error;
 use std::path::Path;
 use std::string::ToString;
@@ -211,13 +210,13 @@ impl CosmosHandler {
 
     fn signer_from_seed(
         seed: String,
-    ) -> Result<(signatory_secp256k1::EcdsaSigner, PublicKey, String), String> {
+    ) -> Result<(SigningKey, PublicKey, String), String> {
         let key = seed_from_mnemonic(seed).map_err(to_string)?;
         let secret_key = SecretKey::from_bytes(privkey_from_seed(key)).map_err(to_string)?;
-        let signer = signatory_secp256k1::EcdsaSigner::from(&secret_key);
-        let tmpubkey = PublicKey::from(signer.public_key().map_err(to_string)?);
+        let signing_key = SigningKey::from(&secret_key);
+        let tmpubkey = PublicKey::from(Secp256k1::from_secret_key(&secret_key, true));
         let address = bech32::encode("cosmos", AccountId::from(tmpubkey).as_bytes());
-        Ok((signer, tmpubkey, address))
+        Ok((signing_key, tmpubkey, address))
     }
 
     /// Send handler entrypoint
@@ -424,7 +423,7 @@ impl CosmosHandler {
         msgs: Vec<serde_json::Value>,
         fee: StdFee,
         memo: String,
-        signer: signatory_secp256k1::EcdsaSigner,
+        signer: SigningKey,
         address: String,
         chain_id: String,
         lcd_addr: String,
@@ -486,5 +485,30 @@ impl CosmosHandler {
             response.result.value.account_number,
             response.result.value.sequence,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CosmosHandler;
+    use signature::Signer;
+    use k256::ecdsa::Signature;
+    use k256::elliptic_curve::SecretKey;
+    use k256::EncodedPoint as Secp256k1;
+
+    const EXAMPLE_SEED: &str = "sunny source soul allow brave luggage mandate metal worth state vapor couple butter retreat solid drift cargo alley degree junk bean price element easy";
+
+    #[test]
+    fn test_signer_from_seed() {
+        let (signer, pk, addr) = CosmosHandler::signer_from_seed(EXAMPLE_SEED.to_string()).unwrap();
+        let sig: Signature = signer.sign(&"test".as_bytes());
+
+        assert_eq!(addr, "cosmos1xccsl78jz98ydsfahrnluxefyvcnavuy4g3wd5");
+        assert_eq!(pk.to_hex(), "EB5AE9872102B13C4ABBF9BEBCBFD0C99F0C9D130FDA36D5DFE5E3D93A182CB46BB93A27D732");
+        assert_eq!(tendermint_light_client::PublicKey::from(Secp256k1::from_secret_key(&SecretKey::from(&signer), true)), pk);
+        assert_eq!(
+            hex::encode(sig.as_ref()),
+            "fe740779fefacfaacebc41973c20cdb827378f92ae3ca66422dfbb0740e962cc1aed2452c265a6aeeccbd0100d03f6b1c7052e8f17a77f5607dbf95f08e62b1c"
+        );
     }
 }

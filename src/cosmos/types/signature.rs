@@ -1,8 +1,8 @@
 use base64_serde::base64_serde_type;
-use k256::Secp256k1;
 use serde::{Deserialize, Serialize};
-use signatory::public_key::PublicKeyed;
-use signature::Signer;
+use k256::ecdsa::{Signature, SigningKey, signature::Signer};
+use k256::elliptic_curve::SecretKey;
+use k256::EncodedPoint as Secp256k1;
 
 base64_serde_type!(Base64Standard, base64::STANDARD);
 
@@ -15,11 +15,13 @@ pub struct StdSignature {
 }
 
 impl StdSignature {
-    pub fn sign(signer: signatory_secp256k1::EcdsaSigner, bytes_to_sign: Vec<u8>) -> Self {
-        let sig: signatory::ecdsa::FixedSignature<Secp256k1> =
-            signer.sign(bytes_to_sign.as_slice());
+    pub fn sign(signer: SigningKey, bytes_to_sign: Vec<u8>) -> Self {
+        let secret_key = SecretKey::from(&signer);
+        let public_key = tendermint_light_client::PublicKey::from(Secp256k1::from_secret_key(&secret_key, true));
+        let sig: Signature = signer.sign(bytes_to_sign.as_slice());
+
         StdSignature {
-            pub_key: tendermint_light_client::PublicKey::from(signer.public_key().unwrap())
+            pub_key: public_key
                 .to_amino_bytes()
                 .to_vec(),
             signature: sig.as_ref().to_vec(),
