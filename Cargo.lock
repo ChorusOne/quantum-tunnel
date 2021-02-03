@@ -4815,7 +4815,8 @@ dependencies = [
 
 [[package]]
 name = "tendermint_light_client"
-version = "0.3.0"
+version = "0.4.0"
+source = "git+https://github.com/ChorusOne/tendermint_light_client.git?branch=master#df795c5f9f7cd48a3b11100b30ce713a51556c22"
 dependencies = [
  "anomaly",
  "base64 0.12.3",
