@@ -1,4 +1,4 @@
-FROM rust:slim-buster
+FROM rust:1.48.0-buster
 
 RUN apt update && apt install -y gcc libprotobuf-dev
 WORKDIR /usr/src/quantum-tunnel
