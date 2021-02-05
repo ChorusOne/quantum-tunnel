@@ -28,7 +28,7 @@
         },
         "commit": {
           "height": "10",
-          "round": "0",
+          "round": 0,
           "block_id": {
             "hash": "9E14F8CF897AF973F0C7DEF91B7C4EDC9DC6C0FE24988BE165B11546A7F00784",
             "parts": {
@@ -173,7 +173,7 @@
         },
         "commit": {
           "height": "20",
-          "round": "0",
+          "round": 0,
           "block_id": {
             "hash": "4CE3F5688970EEC08E891186191FEC92DE6C80A8C24B49C6CB6700C36BE2515E",
             "parts": {

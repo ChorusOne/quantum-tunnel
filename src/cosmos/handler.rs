@@ -23,10 +23,9 @@ use std::string::ToString;
 use subtle_encoding::bech32;
 use tendermint::net::Address;
 use tendermint_light_client::{AccountId, PublicKey};
-use tendermint_rpc::{
-    event_listener::{EventListener, EventSubscription, TMEventData::EventDataNewBlock},
-    Client,
-};
+use tendermint_rpc::{WebSocketClient, SubscriptionClient, Client};
+use tendermint_rpc::query::EventType;
+use futures::StreamExt;
 use url::Url;
 
 pub struct CosmosHandler {}
@@ -142,20 +141,21 @@ impl CosmosHandler {
     ) -> Result<(), String> {
         let rpc_url = Url::parse(&cfg.rpc_addr).map_err(to_string)?;
         let tm_addr = CosmosHandler::parse_tm_addr(rpc_url)?;
-        let mut client = Client::new(tm_addr.clone());
         info!("opening websocket to to {:?}", tm_addr.clone());
-        let mut socket = EventListener::connect(tm_addr.clone())
+        let (mut client, driver) = WebSocketClient::new(tm_addr.clone())
             .await
             .map_err(to_string)?;
+        let driver_handle = tokio::spawn(async move { driver.run().await });
 
         info!("connected websocket to {:?}", tm_addr.clone());
-        socket
-            .subscribe(EventSubscription::BlockSubscription)
+        let mut subs = client
+            .subscribe(EventType::NewBlock.into())
             .await
             .map_err(to_string)?;
         let mut previous_block: Option<TMHeader> = None;
-        loop {
-            let response = Self::recv_data(&mut socket, &mut client).await;
+
+        while let Some(response) = subs.next().await {
+            let response = Self::recv_data(response, &mut client).await;
             if response.is_err() {
                 error!(
                     "Error: {} while processing tendermint node response",
@@ -173,23 +173,33 @@ impl CosmosHandler {
                 .map_err(to_string)?;
             previous_block = Some(header);
         }
+
+        // Signal to the driver to terminate.
+        let _ = client.close().map_err(to_string);
+
+        // Await the driver's termination to ensure proper connection closure.
+        driver_handle.await.unwrap().map_err(to_string)
     }
 
     async fn recv_data(
-        socket: &mut EventListener,
-        client: &mut Client,
+        response: Result<tendermint_rpc::event::Event, tendermint_rpc::Error>,
+        client: &mut WebSocketClient,
     ) -> Result<TMHeader, Box<dyn Error>> {
-        let maybe_result = socket.get_event().await?;
-        if maybe_result.is_none() {
+        let maybe_result = response;
+        if maybe_result.is_err() {
             return Err(ErrorKind::Io("unable to get events from socket".to_string()).into());
         }
         let result = maybe_result.unwrap();
         match result.data {
-            EventDataNewBlock(e) => {
-                if e.block.is_none() {
+            tendermint_rpc::event::EventData::NewBlock {
+                    block,
+                    result_begin_block: _,
+                    result_end_block: _,
+            } => {
+                if block.is_none() {
                     return Err(MalformedResponse("e.block".into()).into());
                 }
-                let block = e.block.unwrap();
+                let block = block.unwrap();
                 let commit_future = client.commit(block.header.height);
                 let validator_set_future = client.validators(block.header.height);
                 let (signed_header_response, validator_set_response) =

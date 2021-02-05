@@ -344,16 +344,16 @@ dependencies = [
 
 [[package]]
 name = "async-tungstenite"
-version = "0.5.0"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "182617e5bbfe7001b6f2317883506f239c77313171620a04cc11292704d3e171"
+checksum = "9ce503a5cb1e7450af7d211b86b84807791b251f335b2f43f1e26b85a416f315"
 dependencies = [
  "futures-io",
  "futures-util",
  "log",
- "pin-project 0.4.27",
+ "pin-project 1.0.5",
  "tokio",
- "tungstenite",
+ "tungstenite 0.11.1",
 ]
 
 [[package]]
@@ -829,9 +829,9 @@ dependencies = [
 
 [[package]]
 name = "ctor"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10bcb9d7dcbf7002aaffbb53eac22906b64cdcc127971dcc387d8eb7c95d5560"
+checksum = "e8f45d9ad417bcef4817d614a501ab55cdd96a6fdb24f49aab89a54acfd66b19"
 dependencies = [
  "quote 1.0.8",
  "syn 1.0.60",
@@ -1767,7 +1767,7 @@ dependencies = [
  "httparse",
  "httpdate",
  "itoa",
- "pin-project 1.0.4",
+ "pin-project 1.0.5",
  "socket2",
  "tokio",
  "tower-service",
@@ -2396,7 +2396,7 @@ dependencies = [
  "bytes 0.5.6",
  "futures 0.3.12",
  "log",
- "pin-project 1.0.4",
+ "pin-project 1.0.5",
  "smallvec 1.6.1",
  "unsigned-varint 0.5.1",
 ]
@@ -2478,6 +2478,17 @@ checksum = "b6b19411a9719e753aff12e5187b74d60d3dc449ec3f4dc21e3989c3f554bc95"
 dependencies = [
  "autocfg 1.0.1",
  "num-traits",
+]
+
+[[package]]
+name = "num-derive"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "876a53fff98e03a936a674b29568b0e605f06b29372c2489ff4de23f1949743d"
+dependencies = [
+ "proc-macro2 1.0.24",
+ "quote 1.0.8",
+ "syn 1.0.60",
 ]
 
 [[package]]
@@ -2911,11 +2922,11 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95b70b68509f17aa2857863b6fa00bf21fc93674c7a8893de2f469f6aa7ca2f2"
+checksum = "96fa8ebb90271c4477f144354485b8068bd8f6b78b428b01ba892ca26caf0b63"
 dependencies = [
- "pin-project-internal 1.0.4",
+ "pin-project-internal 1.0.5",
 ]
 
 [[package]]
@@ -2931,9 +2942,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-internal"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "caa25a6393f22ce819b0f50e0be89287292fda8d425be38ee0ca14c4931d9e71"
+checksum = "758669ae3558c6f74bd2a18b41f7ac0b5a195aea6639d6a9b5e5d1ad5ba24c0b"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.8",
@@ -3096,16 +3107,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prost-amino"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6dda006a6c21ae45e261a5a756f2a3e5299722eedae2405f4747dd6a5b47556e"
-dependencies = [
- "byteorder",
- "bytes 0.5.6",
-]
-
-[[package]]
 name = "prost-amino-derive"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3118,20 +3119,6 @@ dependencies = [
  "quote 0.6.13",
  "sha2 0.8.2",
  "syn 0.14.9",
-]
-
-[[package]]
-name = "prost-amino-derive"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bbb97577964b9ff334506e319a7628af460f59a6be1da592b5bdccb6a78e921"
-dependencies = [
- "failure",
- "itertools 0.7.11",
- "proc-macro2 1.0.24",
- "quote 1.0.8",
- "sha2 0.9.3",
- "syn 1.0.60",
 ]
 
 [[package]]
@@ -3640,6 +3627,15 @@ name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
+
+[[package]]
+name = "same-file"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
+dependencies = [
+ "winapi-util",
+]
 
 [[package]]
 name = "sc-rpc-api"
@@ -4740,15 +4736,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tai64"
-version = "3.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4014289c3d2b8168880ae86633247e73712fcc579969aff0ca7c5dcd17456b82"
-dependencies = [
- "chrono",
-]
-
-[[package]]
 name = "tempfile"
 version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4764,9 +4751,9 @@ dependencies = [
 
 [[package]]
 name = "tendermint"
-version = "0.16.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b45e7fd7fa5d049de343112ad0d2f45e65e8c700bc395aaed0c806906295b27e"
+checksum = "dece4b481502a8dc31696b7656b97dd73fba374112c22a9a9dae2dcae47231ac"
 dependencies = [
  "anomaly",
  "async-trait",
@@ -4775,9 +4762,10 @@ dependencies = [
  "ed25519",
  "ed25519-dalek",
  "futures 0.3.12",
+ "num-traits",
  "once_cell",
- "prost-amino 0.6.0",
- "prost-amino-derive 0.6.1",
+ "prost",
+ "prost-types",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -4786,31 +4774,55 @@ dependencies = [
  "signature",
  "subtle 2.4.0",
  "subtle-encoding",
- "tai64",
+ "tendermint-proto",
  "thiserror",
  "toml",
  "zeroize",
 ]
 
 [[package]]
-name = "tendermint-rpc"
-version = "0.16.0"
+name = "tendermint-proto"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b718face63ee456cb7305902db0bcdd3b233666cbcf25aa95c173c1252792b4c"
+checksum = "1dc89e2c7de21f1abb9ae5bc7eb5570b10a3ec11ca0a7a009ec594b1d3b8c917"
 dependencies = [
+ "anomaly",
+ "bytes 0.5.6",
+ "chrono",
+ "num-derive",
+ "num-traits",
+ "prost",
+ "prost-types",
+ "serde",
+ "serde_bytes",
+ "subtle-encoding",
+ "thiserror",
+]
+
+[[package]]
+name = "tendermint-rpc"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "777930720ed2ade8198dcbaddcfbeaf8528215de3d4641d806ff1e42952a8d3c"
+dependencies = [
+ "async-trait",
  "async-tungstenite",
  "bytes 0.5.6",
+ "chrono",
  "futures 0.3.12",
  "getrandom 0.1.16",
- "http",
- "hyper",
+ "pin-project 1.0.5",
  "serde",
  "serde_bytes",
  "serde_json",
+ "subtle-encoding",
  "tendermint",
+ "tendermint-proto",
  "thiserror",
  "tokio",
+ "tracing",
  "uuid",
+ "walkdir",
 ]
 
 [[package]]
@@ -4825,8 +4837,8 @@ dependencies = [
  "ed25519-dalek",
  "elliptic-curve",
  "k256",
- "prost-amino 0.5.0",
- "prost-amino-derive 0.5.0",
+ "prost-amino",
+ "prost-amino-derive",
  "ripemd160",
  "serde",
  "serde_derive",
@@ -4868,9 +4880,9 @@ dependencies = [
 
 [[package]]
 name = "thread_local"
-version = "1.1.2"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8208a331e1cb318dd5bd76951d2b8fc48ca38a69f5f4e4af1b6a9f8c6236915"
+checksum = "8018d24e04c95ac8790716a5987d0fec4f8b27249ffa0f7d33f1369bdfb88cbd"
 dependencies = [
  "once_cell",
 ]
@@ -4979,7 +4991,7 @@ dependencies = [
  "log",
  "pin-project 0.4.27",
  "tokio",
- "tungstenite",
+ "tungstenite 0.10.1",
 ]
 
 [[package]]
@@ -5162,6 +5174,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "tungstenite"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0308d80d86700c5878b9ef6321f020f29b1bb9d5ff3cab25e75e23f3a492a23"
+dependencies = [
+ "base64 0.12.3",
+ "byteorder",
+ "bytes 0.5.6",
+ "http",
+ "httparse",
+ "input_buffer",
+ "log",
+ "rand 0.7.3",
+ "sha-1 0.9.3",
+ "url 2.2.0",
+ "utf-8",
+]
+
+[[package]]
 name = "twox-hash"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5329,6 +5360,17 @@ name = "waker-fn"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d5b2c62b4012a3e1eca5a7e077d13b3bf498c4073e33ccd58626607748ceeca"
+
+[[package]]
+name = "walkdir"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "777182bc735b6424e1a57516d35ed72cb8019d85c8c9bf536dccb3445c1a2f7d"
+dependencies = [
+ "same-file",
+ "winapi 0.3.9",
+ "winapi-util",
+]
 
 [[package]]
 name = "want"

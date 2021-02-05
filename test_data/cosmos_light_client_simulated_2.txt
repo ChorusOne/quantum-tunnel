@@ -28,7 +28,7 @@
       },
       "commit": {
         "height": "154",
-        "round": "0",
+        "round": 0,
         "block_id": {
           "hash": "2B248F585A10E2EA82827157889E6267F2F7840119011395B8A4594959D3F644",
           "parts": {
@@ -173,7 +173,7 @@
       },
       "commit": {
         "height": "174",
-        "round": "0",
+        "round": 0,
         "block_id": {
           "hash": "2013840EE6CD9FEB60B0354375E50503E6A55098EEB01AAF7C21790AB9302A3C",
           "parts": {
@@ -318,7 +318,7 @@
       },
       "commit": {
         "height": "200",
-        "round": "0",
+        "round": 0,
         "block_id": {
           "hash": "65C68008299CFFAED30FA79B95530D3303C27CA9B3EBDEDE8B04F486CB671989",
           "parts": {
@@ -463,7 +463,7 @@
       },
       "commit": {
         "height": "210",
-        "round": "0",
+        "round": 0,
         "block_id": {
           "hash": "9275FD08593C9B12FE876CE814E18BACE4A95AE1F82BCED96D7E86670E91FCBB",
           "parts": {
