@@ -55,12 +55,12 @@ version = "1"
 
 [dependencies.tendermint]
 default-features = false
-version = "0.16.0"
+version = "0.17.1"
 
 [dependencies.tendermint-rpc]
 default-features = false
-features = ["client"]
-version = "0.16.0"
+features = ["websocket-client"]
+version = "0.17.1"
 
 [dependencies.tendermint_light_client]
 default-features = false

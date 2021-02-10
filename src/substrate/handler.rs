@@ -306,7 +306,7 @@ impl SubstrateHandler {
             } else {
                 result.unwrap()
             };
-            let current_height = msg.0.signed_header.header.height.0;
+            let current_height = msg.0.signed_header.header.height.value();
             if new_client {
                 new_client = false;
                 let create_client_payload = TMCreateClientPayload {
