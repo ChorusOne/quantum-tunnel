@@ -1,17 +1,18 @@
 [![Build Status][travis-badge]][travis]
 
 [travis-badge]: https://travis-ci.org/ChorusOne/quantum-tunnel.svg?branch=master
+[travis]: https://travis-ci.org/ChorusOne/quantum-tunnel/
 
 # QuantumTunnel
-QuantumTunnel is a basic relayer developed to connect [tendermint_light_client] and [substrate_light_client] with any cosmos and substrate chain respectively. It can also be used
-to test either substrate_light_client or tendermint_light_client by simulating their target chains. Refer [here](#how-it-works) to know how it works under the hood.
+QuantumTunnel is a basic relayer developed to connect Light Client ([tendermint_light_client], [substrate_light_client], [celo_light_client]) with cosmos chain. It can also be used
+to test either substrate_light_client, tendermint_light_client or celo_light_client by simulating their target chains. Refer [here](#how-it-works) to know how it works under the hood.
 
 This application is authored using [Abscissa], a Rust application framework.
 
 ## Compilation
 To build QuantumTunnel you need to have rust nightly toolchain installed. You can find instructions [here](https://github.com/rust-lang/rustup#installing-nightly).
 After you have nightly toolchain installed, just run:
-`make build`
+`CHAIN=substrate make build`
 
 ## Running
 QuantumTunnel relies on json files to read chain connection configuration, passed by `-c` command line argument.
@@ -24,6 +25,9 @@ For Substrate live chain:
 
 For Cosmos live chain:
 `COSMOS_SIGNER_SEED=<your >= 12 words seed>`
+
+For Celo live chain:
+`CELO_SIGNER_SEED=<your >= 12 words seed>`
 
 The `test_data` folder in the repository contains different type of configuration and simulation data for both cosmos and substrate chain.
 Each chain's configuration field in json can be of two forms: `real` or `simulation`. 
@@ -70,5 +74,6 @@ Each side's handlers can start in one of the two modes:
 [Abscissa]: https://github.com/iqlusioninc/abscissa
 [tendermint_light_client]: https://github.com/ChorusOne/tendermint-light-client
 [substrate_light_client]: https://github.com/ChorusOne/substrate-light-client
+[celo_light_client]: https://github.com/ChorusOne/celo-light-client
 [tokio]: https://github.com/tokio-rs/tokio
 [crossbeam]: https://github.com/crossbeam-rs/crossbeam
