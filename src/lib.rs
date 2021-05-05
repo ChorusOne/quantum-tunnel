@@ -15,8 +15,9 @@
     unused_qualifications
 )]
 
+
 #[macro_use]
-extern crate substrate_subxt_proc_macro;
+extern crate cfg_if;
 
 pub mod application;
 pub mod commands;
@@ -24,5 +25,15 @@ pub mod config;
 mod cosmos;
 pub mod error;
 pub mod prelude;
-mod substrate;
 mod utils;
+
+cfg_if! {
+    if #[cfg(feature = "substrate")] {
+        #[macro_use]
+        extern crate substrate_subxt_proc_macro;
+
+        mod substrate;
+    } else if #[cfg(feature = "celo")] {
+        mod celo;
+    }
+}

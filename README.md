@@ -1,7 +1,6 @@
 [![Build Status][travis-badge]][travis]
 
 [travis-badge]: https://travis-ci.org/ChorusOne/quantum-tunnel.svg?branch=master
-[travis]: https://travis-ci.org/ChorusOne/quantum-tunnel/
 
 # QuantumTunnel
 QuantumTunnel is a basic relayer developed to connect [tendermint_light_client] and [substrate_light_client] with any cosmos and substrate chain respectively. It can also be used

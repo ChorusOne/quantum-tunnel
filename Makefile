@@ -1,11 +1,11 @@
 build:
-	cargo +nightly build
+	cargo build --features $(CHAIN)
 
 format:
 	find . -name "*.rs" -exec rustfmt --edition=2018 {} \;
 
 release:
-	cargo +nightly build --release
+	cargo build --release --features $(CHAIN)
 
 run:
-	cargo run -- start
+	cargo run --features $(CHAIN) -- start

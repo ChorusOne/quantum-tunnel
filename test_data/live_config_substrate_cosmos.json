@@ -3,7 +3,7 @@
     "real": {
       "chain_id": "testing",
       "rpc_addr": "http://localhost:26657/",
-      "lcd_addr": "http://localhost:1317/",
+      "grpc_addr": "http://localhost:9090",
       "trusting_period": "720h",
       "unbonding_period": "721h",
       "max_clock_drift": "30s",

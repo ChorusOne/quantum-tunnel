@@ -1,72 +1,10 @@
-use crate::cosmos::types::StdSignature;
 use cast::u64;
-use log::info;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-
-//TODO: add amino prost encoding for all this. or better still, wait for protobuf...
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct StdTx {
-    pub msg: Vec<Value>,
-    pub fee: StdFee,
-    pub signatures: Vec<StdSignature>,
-    pub memo: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct StdSignDoc {
-    #[serde(with = "crate::utils::from_str")]
-    pub account_number: u64,
-    pub chain_id: String,
-    pub fee: Value,
-    pub memo: String,
-    pub msgs: Vec<Value>,
-    #[serde(with = "crate::utils::from_str")]
-    pub sequence: u64,
-}
-
-impl StdTx {
-    pub fn get_sign_bytes(&self, chain_id: String, acc_num: u64, sequence: u64) -> Vec<u8> {
-        std_sign_bytes(
-            chain_id,
-            acc_num,
-            sequence,
-            self.fee.clone(),
-            self.msg.clone(),
-            self.memo.clone(),
-        )
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct StdFee {
-    #[serde(with = "crate::utils::from_str")]
-    pub gas: u64,
-    pub amount: Vec<Coin>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Coin {
-    #[serde(with = "crate::utils::from_str")]
-    amount: u64,
-    denom: String,
-}
-
-pub type Coins = Vec<Coin>;
-
-impl Coin {
-    #[allow(dead_code)] // Used only in test
-    pub fn from(str: String) -> Self {
-        info!("{}", str);
-        let re = Regex::new(r"^(\d+)([a-z]+)$").unwrap();
-        let caps = re.captures(&str).unwrap();
-        Coin {
-            amount: str::parse(caps.get(1).unwrap().as_str()).unwrap(),
-            denom: caps.get(2).unwrap().as_str().to_string(),
-        }
-    }
-}
+use crate::utils::prost_serialize;
+use crate::cosmos::proto::cosmos::{
+    base::v1beta1::Coin,
+    tx::v1beta1::{AuthInfo, TxBody, SignDoc},
+};
 
 #[derive(Clone, Debug)]
 pub struct DecCoin {
@@ -76,7 +14,6 @@ pub struct DecCoin {
 
 impl DecCoin {
     pub fn from(str: String) -> Self {
-        info!("{}", str);
         let re = Regex::new(r"^(\d+(\.\d*)?)([a-z]+)$").unwrap();
         let caps = re.captures(&str).unwrap();
         DecCoin {
@@ -93,31 +30,26 @@ impl DecCoin {
     pub fn to_coin(&self) -> Coin {
         let amount: u64 = u64(self.amount.abs()).unwrap();
         Coin {
-            amount: amount,
+            amount: format!("{}", amount),
             denom: self.denom.clone(),
         }
     }
 }
 
-fn std_sign_bytes(
+pub fn std_sign_bytes(
+    body: &TxBody,
+    auth_info: &AuthInfo,
     chain_id: String,
-    acc_num: u64,
-    sequence: u64,
-    fee: StdFee,
-    msgs: Vec<Value>,
-    memo: String,
-) -> Vec<u8> {
-    let s = StdSignDoc {
-        account_number: acc_num,
+    account_number: u64
+) -> Result<Vec<u8>, prost::EncodeError> {
+    let sign_doc = SignDoc {
+        body_bytes: prost_serialize(body)?,
+        auth_info_bytes: prost_serialize(auth_info)?,
         chain_id,
-        fee: json!(fee),
-        memo,
-        msgs,
-        sequence,
+        account_number,
     };
 
-    serde_json::to_vec(&s).unwrap()
-    // sort json
+    Ok(prost_serialize(&sign_doc)?)
 }
 
 #[cfg(test)]

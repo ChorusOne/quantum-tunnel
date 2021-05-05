@@ -1,4 +1,5 @@
 mod sub;
+mod msg;
 use parity_scale_codec::Decode;
 use serde::{Deserialize, Serialize};
 use sp_finality_grandpa::{AuthorityId, AuthorityWeight, VersionedAuthorityList};

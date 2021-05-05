@@ -1,22 +1,22 @@
 {
   "cosmos": {
     "real": {
-      "chain_id": "testing",
+      "chain_id": "wormhole",
       "rpc_addr": "http://localhost:26657/",
       "grpc_addr": "http://localhost:9090",
       "trusting_period": "720h",
       "unbonding_period": "721h",
       "max_clock_drift": "30s",
-      "wasm_id": 1,
-      "gas": 90000000,
+      "wasm_id": "c870529f606609c361b88d16e229613c9517c3bd3f53c086d0f4fdf81f0799ec",
+      "gas": 10000000000,
       "gas_price": "0.25stake",
       "default_denom": "stake"
     }
   },
-  "substrate": {
+  "celo": {
     "simulation": {
-      "simulation_file_path": "test_data/substrate_light_client_simulated_2.txt",
-      "should_run_till_height": 7
+      "simulation_file_path": "test_data/celo_light_client_simulated.txt",
+      "should_run_till_height": 6509407
     }
   }
 }
