@@ -459,7 +459,7 @@
     "initial_client_state": {
         "epoch_size": 17280,
         "allowed_clock_skew": 30,
-        "trusting_period": 2592000,
+        "trusting_period": 100000000000000000,
         "upgrade_path": [],
         "verify_epoch_headers": true,
         "verify_non_epoch_headers": true,
@@ -930,7 +930,7 @@
     "initial_client_state": {
         "epoch_size": 17280,
         "allowed_clock_skew": 30,
-        "trusting_period": 2592000,
+        "trusting_period": 100000000000000000,
         "upgrade_path": [],
         "verify_epoch_headers": true,
         "verify_non_epoch_headers": true,
@@ -1401,7 +1401,7 @@
     "initial_client_state": {
         "epoch_size": 17280,
         "allowed_clock_skew": 30,
-        "trusting_period": 2592000,
+        "trusting_period": 100000000000000000,
         "upgrade_path": [],
         "verify_epoch_headers": true,
         "verify_non_epoch_headers": true,
@@ -1872,7 +1872,7 @@
     "initial_client_state": {
         "epoch_size": 17280,
         "allowed_clock_skew": 30,
-        "trusting_period": 2592000,
+        "trusting_period": 100000000000000000,
         "upgrade_path": [],
         "verify_epoch_headers": true,
         "verify_non_epoch_headers": true,
@@ -2343,7 +2343,7 @@
     "initial_client_state": {
         "epoch_size": 17280,
         "allowed_clock_skew": 30,
-        "trusting_period": 2592000,
+        "trusting_period": 100000000000000000,
         "upgrade_path": [],
         "verify_epoch_headers": true,
         "verify_non_epoch_headers": true,
@@ -2814,7 +2814,7 @@
     "initial_client_state": {
         "epoch_size": 17280,
         "allowed_clock_skew": 30,
-        "trusting_period": 2592000,
+        "trusting_period": 100000000000000000,
         "upgrade_path": [],
         "verify_epoch_headers": true,
         "verify_non_epoch_headers": true,
@@ -3285,7 +3285,7 @@
     "initial_client_state": {
         "epoch_size": 17280,
         "allowed_clock_skew": 30,
-        "trusting_period": 2592000,
+        "trusting_period": 100000000000000000,
         "upgrade_path": [],
         "verify_epoch_headers": true,
         "verify_non_epoch_headers": true,
