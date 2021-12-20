@@ -7,7 +7,7 @@
       "trusting_period": "720h",
       "unbonding_period": "721h",
       "max_clock_drift": "30s",
-      "wasm_id": "c870529f606609c361b88d16e229613c9517c3bd3f53c086d0f4fdf81f0799ec",
+      "wasm_id": "6b224908334c6552fdd361d640d1b2e8564fb03286b09670cc1d026e406c632b",
       "gas": 10000000000,
       "gas_price": "0.25stake",
       "default_denom": "stake"
@@ -17,13 +17,17 @@
     "real": {
       "ws_addr": "ws://127.0.0.1:3334/",
       "rpc_addr": "http://localhost:8545",
+      "gas": 20000000,
       "epoch_size": 17280,
       "verify_epoch_headers": true,
       "verify_non_epoch_headers": true,
       "verify_header_timestamp": false,
       "allow_update_after_expiry": true,
       "allow_update_after_misbehavior": true,
+      "ibc_host_address": "0x2F5703804E29F4252FA9405B8D357220d11b3bd9",
+      "ibc_handler_address": "0xaE1C9125BbcF63bf51294C4D15CBD472782E330D",
       "trusting_period": "720h",
+      "unbonding_period": "721h",
       "max_clock_drift": "30s"
     }
   }

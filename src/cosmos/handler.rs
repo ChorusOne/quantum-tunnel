@@ -153,14 +153,14 @@ impl CosmosHandler {
     ) -> Result<(), String> {
         let rpc_url = Url::parse(&cfg.rpc_addr).map_err(to_string)?;
         let tm_addr = CosmosHandler::parse_tm_addr(rpc_url)?;
-        info!("opening websocket to to {:?}", tm_addr.clone());
+        info!("opening websocket to to {:?}", tm_addr);
         let (mut client, driver) = WebSocketClient::new(tm_addr.clone())
             .await
             .map_err(to_string)?;
 
         let driver_handle = tokio::spawn(async move { driver.run().await });
 
-        info!("connected websocket to {:?}", tm_addr.clone());
+        info!("connected websocket to {:?}", tm_addr);
         let mut subs = client
             .subscribe(EventType::NewBlock.into())
             .await
@@ -338,9 +338,9 @@ impl CosmosHandler {
 
             if new_client {
                 new_client = false;
-                id = CosmosHandler::create_client::<T>(cfg.clone(), msg).await?;
+                id = CosmosHandler::create_client::<T>(&cfg, msg).await?;
             } else {
-                CosmosHandler::update_client::<T>(cfg.clone(), msg, id.clone()).await?;
+                CosmosHandler::update_client::<T>(&cfg, msg, id.clone()).await?;
             }
 
             if cfg.is_other_side_simulation {
@@ -353,15 +353,15 @@ impl CosmosHandler {
 
     // celo daeamon -> relayer -> celo light client wasm thingy running in cosmos
     pub async fn create_client<T>(
-        cfg: CosmosConfig,
+        cfg: &CosmosConfig,
         header: T,
     ) -> Result<String, String> where T: WasmHeader {
         let (signer, _, address) =
-            CosmosHandler::signer_from_seed(cfg.signer_seed.clone()).map_err(to_string)?;
+            CosmosHandler::signer_from_seed(cfg.signer_seed.to_owned()).map_err(to_string)?;
 
-        let m = header.to_wasm_create_msg(&cfg, address.clone()).map_err(to_string)?;
+        let m = header.to_wasm_create_msg(&cfg, address.to_owned()).map_err(to_string)?;
         let f = Fee {
-            amount: vec![DecCoin::from(cfg.gas_price).mul(cfg.gas as f64).to_coin()],
+            amount: vec![DecCoin::from(cfg.gas_price.to_owned()).mul(cfg.gas as f64).to_coin()],
             gas_limit: cfg.gas,
             payer: "".to_string(),
             granter: "".to_string(),
@@ -372,7 +372,7 @@ impl CosmosHandler {
             f,
             "".to_owned(),
             signer,
-            address.clone(),
+            address,
             cfg.chain_id.clone(),
             cfg.grpc_addr.clone(),
             true
@@ -384,17 +384,17 @@ impl CosmosHandler {
     }
 
     pub async fn update_client<T>(
-        cfg: CosmosConfig,
+        cfg: &CosmosConfig,
         header: T,
         client_id: String,
     ) -> Result<String, String> where T: WasmHeader {
         let (signer, _, address) =
-            CosmosHandler::signer_from_seed(cfg.signer_seed.clone()).map_err(to_string)?;
+            CosmosHandler::signer_from_seed(cfg.signer_seed.to_owned()).map_err(to_string)?;
 
-        let msgs = header.to_wasm_update_msg(address.clone(), client_id).map_err(to_string)?;
+        let msgs = header.to_wasm_update_msg(address.to_owned(), client_id).map_err(to_string)?;
 
         let txfee = Fee {
-            amount: vec![DecCoin::from(cfg.gas_price).mul(cfg.gas as f64).to_coin()],
+            amount: vec![DecCoin::from(cfg.gas_price.to_owned()).mul(cfg.gas as f64).to_coin()],
             gas_limit: cfg.gas,
             payer: "".to_string(),
             granter: "".to_string(),
@@ -406,7 +406,7 @@ impl CosmosHandler {
             txfee,
             "".to_owned(),
             signer,
-            address.clone(),
+            address,
             cfg.chain_id.clone(),
             cfg.grpc_addr.clone(),
             false

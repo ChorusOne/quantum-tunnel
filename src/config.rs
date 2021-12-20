@@ -193,6 +193,8 @@ pub struct CeloConfig {
     /// Bip39 seed of relayer account on cosmos chain. Does not serialize/deserialize.
     #[serde(skip)]
     pub signer_seed: String,
+    /// gas amount to send with transactions.
+    pub gas: u64,
     /// flag indicating whether epoch headers should be validated against BLS signature
     pub verify_epoch_headers: bool,
     /// flag indicating whether non-epoch headers should be validated against BLS signature
@@ -203,8 +205,14 @@ pub struct CeloConfig {
     pub allow_update_after_expiry: bool,
     /// flag indicating whether frozen LC due to misbehaviour can be updated
     pub allow_update_after_misbehavior: bool,
+    /// IBC Host contract address
+    pub ibc_host_address: String,
+    /// IBC Handler contract address
+    pub ibc_handler_address: String,
     /// trusting period, e.g. 72h
     pub trusting_period: String,
+    /// unbonding period of chain, e.g. 504h
+    pub unbonding_period: String,
     /// max clock drift tolerance
     pub max_clock_drift: String,
     /// Flag indicating whether opposite side is simulation. Does not serialize/deserialize.
@@ -220,12 +228,16 @@ impl Default for CeloConfig {
             rpc_addr: "http://localhost:8545".to_owned(),
             epoch_size: 17280,
             signer_seed: "".to_owned(),
+            gas: 20000000,
             verify_epoch_headers: true,
             verify_non_epoch_headers: true,
             verify_header_timestamp: true,
             allow_update_after_expiry: true,
             allow_update_after_misbehavior: true,
+            ibc_host_address: "".to_owned(),
+            ibc_handler_address: "".to_owned(),
             trusting_period: "144h".to_owned(),
+            unbonding_period: "504h".into(),
             max_clock_drift: "30s".to_owned(),
             is_other_side_simulation: false,
         }

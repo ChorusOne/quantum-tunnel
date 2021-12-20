@@ -13,6 +13,10 @@ pub mod proto {
     }
 
     pub mod tendermint {
+        pub mod light {
+            tonic::include_proto!("tendermint.light");
+        }
+
         pub mod version {
             tonic::include_proto!("tendermint.version");
         }

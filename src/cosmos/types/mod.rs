@@ -2,6 +2,7 @@ mod msg;
 pub(crate) mod simulation;
 mod stdtx;
 mod tm;
+mod light;
 pub(crate) use msg::{StdMsg, MsgCreateWasmClient, MsgUpdateWasmClient, WasmHeader};
 
 pub type TMHeader = tm::TMHeader;

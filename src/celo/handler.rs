@@ -6,8 +6,11 @@ use crate::utils::to_string;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use futures::{SinkExt, StreamExt};
 use log::*;
-use std::path::Path;
-use std::string::ToString;
+use std::{
+    path::Path,
+    string::ToString,
+    error::Error,
+};
 use tokio_tungstenite::connect_async;
 use serde_json::{from_str, Value};
 use num::cast::ToPrimitive;
@@ -19,6 +22,9 @@ use celo_light_client::{
         LightClientState
     },
 };
+use web3::{contract::Options, signing::Key, types::U256, contract::Contract};
+use secp256k1::{key::SecretKey, Secp256k1};
+use crate::cosmos::crypto::{privkey_from_seed, seed_from_mnemonic};
 
 pub struct CeloHandler {}
 impl CeloHandler {
@@ -174,7 +180,6 @@ impl CeloHandler {
 
         while let Some(msg) = socket.next().await {
             if let Ok(msg) = msg {
-                info!("Received message from celo chain: {:?}", msg);
                 match process_msg(msg.clone(), initial_consensus_state.clone(), initial_client_state.clone()).await {
                     Ok(maybe_header) => match maybe_header {
                         Some(celo_header) => outchan
@@ -188,6 +193,13 @@ impl CeloHandler {
         }
 
         Ok(())
+    }
+
+    fn signer_from_seed(
+        seed: String,
+    ) -> Result<SecretKey, String> {
+        let key = seed_from_mnemonic(seed).map_err(to_string)?;
+        Ok(SecretKey::from_slice(&privkey_from_seed(key)).map_err(to_string)?)
     }
 
     /// Send handler entrypoint
@@ -252,16 +264,17 @@ impl CeloHandler {
     /// If client id is not passed, first payload sent would be for creating the client.
     pub async fn chain_send_handler(
         cfg: CeloConfig,
-        _client_id: Option<String>,
+        client_id: Option<String>,
         inchan: Receiver<(TMHeader, Vec<tendermint::validator::Info>)>,
         monitoring_outchan: Sender<(bool, u64)>,
     ) -> Result<(), String> {
-        let mut new_client = false;
-        // TODO: We don't have a CosmosClient (tendermint-light-client) running on the CeloBlockchain yet,
-        // so this is just a stub method.
-        //
-        // Cosmos[CeloLightWasm] in: Celo out: Cosmos <---> in: Cosmos, out: Celo Celo[TendermintLight]
-        // ^^ we implement this                             !!^^ not this
+        let mut new_client = true;
+        let mut id = if !client_id.is_some() {
+            new_client = true;
+            String::default()
+        } else {
+            client_id.unwrap()
+        };
 
         loop {
             let result = inchan.try_recv();
@@ -281,27 +294,111 @@ impl CeloHandler {
             } else {
                 result.unwrap()
             };
+
             let current_height = msg.0.signed_header.header.height.value();
+            let transport = web3::transports::Http::new(&cfg.rpc_addr).unwrap();
 
             if new_client {
                 new_client = false;
-                info!("Created Cosmos light client");
+                info!("Creating tendermint-sol light client at height: {}", current_height);
+                id = create_client(&transport, &cfg, msg.0).await?;
             } else {
-                info!(
-                    "{}",
-                    format!(
-                        "Updating Cosmos light client with block at height: {}",
-                        current_height
-                    )
-                );
-                info!("Updated Cosmos light client");
+                info!("Updating tendermint-sol light client with block at height: {}", current_height);
+                update_client(&transport, &cfg, msg.0, msg.1, id.clone()).await?;
             }
+
             if cfg.is_other_side_simulation {
                 monitoring_outchan
                     .try_send((false, current_height))
                     .map_err(to_string)?;
             }
         }
+    }
+}
+
+pub async fn create_client<'a, T: web3::Transport>(
+    transport: &'a T,
+    cfg: &CeloConfig,
+    header: TMHeader,
+) -> Result<String, String> {
+    let signer = CeloHandler::signer_from_seed(cfg.signer_seed.clone()).map_err(to_string)?;
+    let (handler_contract, host_contract) = get_contracts(&transport, cfg).map_err(to_string)?;
+
+    let tok = header.to_sol_create_msg(&cfg).map_err(to_string)?;
+    let create_client_result = handler_contract.signed_call_with_confirmations(
+        "createClient",
+        tok,
+        get_eth_options(&cfg),
+        1,
+        web3::signing::SecretKeyRef::new(&signer),
+    );
+
+    let create_client_reciept: web3::types::TransactionReceipt = create_client_result.await.map_err(to_string).unwrap();
+    match create_client_reciept.status {
+        Some(status) => {
+            if status != web3::types::U64([1 as u64]) {
+                Err(format!("failed to create tendermint light client, reciept: {:?}", create_client_reciept))
+            } else {
+                let id = crate::celo::eth::get_client_ids(&transport, &host_contract)
+                    .await
+                    .map_err(to_string)?
+                    .last()
+                    .unwrap()
+                    .to_string();
+
+                info!("Created tendermint-sol light client at height: {}, id: {}", header.signed_header.header.height.value(), id);
+
+                Ok(id)
+            }
+        }
+        None => panic!("unkown tx status"),
+    }
+}
+
+pub async fn update_client<'a, T: web3::Transport>(
+    transport: &'a T,
+    cfg: &CeloConfig,
+    header: TMHeader,
+    validators: Vec<tendermint::validator::Info>,
+    client_id: String
+) -> Result<String, String> {
+    let signer = CeloHandler::signer_from_seed(cfg.signer_seed.clone()).map_err(to_string)?;
+
+    let (handler_contract, host_contract) = get_contracts(&transport, cfg).map_err(to_string)?;
+
+    let client_id = crate::celo::eth::get_client_ids(&transport, &host_contract)
+        .await
+        .map_err(to_string)?
+        .last()
+        .unwrap()
+        .to_string();
+
+    let tok = header.to_sol_update_msg(&cfg, validators, client_id.clone()).map_err(to_string)?;
+
+    let update_client_result = handler_contract.signed_call_with_confirmations(
+        "updateClient",
+        tok,
+        get_eth_options(&cfg),
+        1,
+        web3::signing::SecretKeyRef::new(&signer),
+    );
+
+    let update_client_reciept: web3::types::TransactionReceipt = update_client_result.await.map_err(to_string).unwrap();
+    match update_client_reciept.status {
+        Some(status) => {
+            if status != web3::types::U64([1 as u64]) {
+                Err(format!("failed to update tendermint client, reciept: {:?}", update_client_reciept))
+            } else {
+                info!(
+                    "Updated tendermint-sol light client with block at height: {}, tx: {}",
+                    header.signed_header.header.height.value(),
+                    update_client_reciept.transaction_hash.to_string()
+                );
+
+                Ok(update_client_reciept.transaction_hash.to_string())
+            }
+        }
+        None => panic!("unkown tx status"),
     }
 }
 
@@ -331,4 +428,30 @@ pub async fn get_initial_header(addr: String, state_config: LightClientState) ->
             }
         }
     )
+}
+
+fn get_contracts<'a, T: web3::Transport>(
+    transport: &'a T,
+    cfg: &'a CeloConfig,
+) -> Result<(Contract<&'a T>, Contract<&'a T>), Box<dyn Error>> {
+    let handler_contract = crate::celo::eth::load_contract(
+        transport,
+        "../tendermint-sol/build/contracts/IBCHandler.json",
+        &cfg.ibc_handler_address,
+    )?;
+
+    let host_contract = crate::celo::eth::load_contract(
+        transport,
+        "../tendermint-sol/build/contracts/IBCHost.json",
+        &cfg.ibc_host_address,
+    )?;
+
+    Ok((handler_contract, host_contract))
+}
+
+fn get_eth_options(cfg: &CeloConfig) -> Options {
+    let mut options = Options::default();
+    options.gas = Some(U256::from(cfg.gas as i64));
+
+    options
 }

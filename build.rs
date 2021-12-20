@@ -4,6 +4,7 @@ fn main() {
         .build_client(true)
         .compile(
             &[
+                "proto/TendermintLight.proto",
                 "proto/tendermint/version/types.proto",
                 "proto/tendermint/crypto/proof.proto",
                 "proto/tendermint/types/types.proto",

@@ -45,13 +45,11 @@ impl WasmHeader for CeloWrappedHeader {
         let client_state = ClientState {
             code_id: code_id.clone(),
             data: self.initial_client_state.to_rlp(),
-            frozen: false,
-            frozen_height: None,
             latest_height: Some(Height {
                 revision_number: 0,
                 revision_height: self.header.number.to_u64().unwrap(),
             }),
-            r#type: "wasm_dummy".to_string(),
+            proof_specs: Vec::new(),
         };
 
         let consensus_state = ConsensusState {
@@ -59,7 +57,6 @@ impl WasmHeader for CeloWrappedHeader {
             data: self.initial_consensus_state.to_rlp(),
             timestamp: self.initial_consensus_state.timestamp,
             root: Some(MerkleRoot { hash: self.header.root.to_vec() }),
-            r#type: "wasm_dummy".to_string()
         };
 
         let msg = MsgCreateClient {
@@ -89,7 +86,6 @@ impl WasmHeader for CeloWrappedHeader {
                 revision_number: 0,
                 revision_height: self.header.number.to_u64().unwrap(),
             }),
-            r#type: "wasm_dummy".to_string()
         };
 
         let msg = MsgUpdateClient {

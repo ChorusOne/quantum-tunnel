@@ -46,6 +46,12 @@ tonic = "0.4.0"
 # Cosmos deps
 tendermint-rpc = { version = "0.18", features = ["websocket-client"], default-features = false }
 tendermint = { version = "0.18", default-features = false }
+tendermint-proto = { version = "0.18", default-features = false }
+
+# Tendermint Light client deps
+ethabi = "14.1.0"
+web3 = "0.17.0"
+secp256k1 = { version = "0.20.3", features = ["rand-std"] }
 
 # Substrate deps
 sp-core = { version = "2.0.1", optional = true }
