@@ -1,4 +1,6 @@
-use celo_light_client::{Address, FromBytes, Header, SerializedPublicKey, Validator};
+use celo_types::header::Header;
+use celo_types::istanbul::{ValidatorData as Validator, SerializedPublicKey};
+use ethereum_types::Address;
 
 use hyper::client::{Client, HttpConnector};
 use hyper::http::Request;
@@ -64,9 +66,8 @@ impl SyncClient {
             .zip(keys.iter())
             .map(|(address, public_key)| {
                 Ok(Validator {
-                    address: Address::from_bytes(&hex::decode(&address[2..])?)?.to_owned(),
-                    public_key: SerializedPublicKey::from_bytes(&hex::decode(&public_key[2..])?)?
-                        .to_owned(),
+                    address: Address::from_slice(&hex::decode(&address[2..])?),
+                    public_key: SerializedPublicKey::from_slice(&hex::decode(&public_key[2..])?),
                 })
             })
             .collect()

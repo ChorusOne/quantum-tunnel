@@ -42,6 +42,8 @@ subtle-encoding = { version = "0.5.1", features = ["bech32-preview"] }
 prost = "0.7"
 prost-types = "0.7"
 tonic = "0.4.0"
+ethereum-types = {version = "0.11", default-features = false, features = ["rlp"]}
+rlp = {version = "0.5"}
 
 # Cosmos deps
 tendermint-rpc = { version = "0.18", features = ["websocket-client"], default-features = false }
@@ -58,14 +60,15 @@ substrate-subxt-proc-macro = { version = "0.13.0", optional = true }
 
 # Celo deps
 num = { version = "0.3.1", optional = true }
-celo_light_client = { git = "https://github.com/ChorusOne/celo-light-client.git", branch = "main", features = ["wasm-contract"], optional = true , default-features = false}
+celo-types = { git = "https://github.com/ChorusOne/celo-light-client.git", branch = "giulio/improvs", features = ["serialize"], optional = true}
 
 [build-dependencies]
 tonic-build = "0.4.0"
 
 [features]
+default = ["celo"]
 celo = [
-    "celo_light_client",
+    "celo-types",
     "num"
 ]
 

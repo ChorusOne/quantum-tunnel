@@ -7,14 +7,8 @@ use crate::cosmos::proto::{
     ibc::lightclients::wasm::v1::{ClientState, ConsensusState, Header as IbcWasmHeader},
     ibc::core::client::v1::{MsgCreateClient, MsgUpdateClient, Height},
 };
-use celo_light_client::{
-    Header as CeloHeader,
-    ToRlp,
-    contract::types::state::{
-        LightConsensusState,
-        LightClientState
-    },
-};
+use celo_types::header::Header as CeloHeader;
+use celo_types::{client::LightClientState, consensus::LightConsensusState};
 use serde::{Deserialize, Serialize};
 use num::cast::ToPrimitive;
 use prost_types::Any;
@@ -33,32 +27,32 @@ impl WasmHeader for CeloWrappedHeader {
     }
 
     fn height(&self) -> u64 {
-        self.header.number.to_u64().unwrap()
+        self.header.number.as_u64()
     }
 
     fn to_wasm_create_msg(&self, cfg: &CosmosConfig, address: String) -> Result<Vec<Any>, Box<dyn Error>> {
-        if self.header.number.to_u64().unwrap() != self.initial_consensus_state.number {
+        if self.header.number.as_u64() != self.initial_consensus_state.number {
             return Err(Box::new(ErrorKind::Io("initial block header doesn't match initial state entry height".to_string())));
         }
 
         let code_id = hex::decode(&cfg.wasm_id)?;
         let client_state = ClientState {
             code_id: code_id.clone(),
-            data: self.initial_client_state.to_rlp(),
+            data: rlp::encode(&self.initial_client_state).as_ref().to_vec(),
             frozen: false,
             frozen_height: None,
             latest_height: Some(Height {
                 revision_number: 0,
-                revision_height: self.header.number.to_u64().unwrap(),
+                revision_height: self.header.number.as_u64(),
             }),
             r#type: "wasm_dummy".to_string(),
         };
 
         let consensus_state = ConsensusState {
             code_id,
-            data: self.initial_consensus_state.to_rlp(),
-            timestamp: self.initial_consensus_state.timestamp,
-            root: Some(MerkleRoot { hash: self.header.root.to_vec() }),
+            data: rlp::encode(&self.initial_consensus_state).as_ref().to_vec(),
+            timestamp: self.header.time.as_u64(),
+            root: Some(MerkleRoot { hash: self.header.root.as_bytes().to_vec() }),
             r#type: "wasm_dummy".to_string()
         };
 
@@ -84,10 +78,10 @@ impl WasmHeader for CeloWrappedHeader {
 
     fn to_wasm_update_msg(&self, address: String, client_id: String) -> Result<Vec<Any>, Box<dyn Error>> {
         let header = IbcWasmHeader {
-            data: self.header.to_rlp().to_owned(),
+            data: rlp::encode(&self.header).as_ref().to_vec(),
             height: Some(Height {
                 revision_number: 0,
-                revision_height: self.header.number.to_u64().unwrap(),
+                revision_height: self.header.number.as_u64(),
             }),
             r#type: "wasm_dummy".to_string()
         };
