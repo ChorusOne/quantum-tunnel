@@ -26,6 +26,10 @@ pub enum ErrorKind {
     /// Malformed response
     #[error("Malformed response. `{0}` field was unavailable or could not be parsed")]
     MalformedResponse(String),
+
+    /// tendermint-rpc error
+    #[error("tendermint-rpc error: {0}")]
+    TendermintRpc(String)
 }
 
 impl ErrorKind {

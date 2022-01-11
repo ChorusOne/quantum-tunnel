@@ -2,15 +2,12 @@ use crate::config::CosmosConfig;
 use crate::utils::prost_serialize;
 use crate::error::ErrorKind;
 use crate::cosmos::types::{StdMsg, MsgCreateWasmClient, MsgUpdateWasmClient, WasmHeader};
-use crate::cosmos::proto::{
-    ibc::core::commitment::v1::MerkleRoot,
-    ibc::lightclients::wasm::v1::{ClientState, ConsensusState, Header as IbcWasmHeader},
-    ibc::core::client::v1::{MsgCreateClient, MsgUpdateClient, Height},
-};
+use ibc_proto::ibc::core::commitment::v1::MerkleRoot;
+use ibc_proto::ibc::core::client::v1::{MsgCreateClient, MsgUpdateClient, Height};
+use ibc_proto::ibc::lightclients::wasm::v1::{ClientState, ConsensusState, Header as IbcWasmHeader};
 use celo_types::header::Header as CeloHeader;
 use celo_types::{client::LightClientState, consensus::LightConsensusState};
 use serde::{Deserialize, Serialize};
-use num::cast::ToPrimitive;
 use prost_types::Any;
 use std::error::Error;
 
@@ -39,13 +36,11 @@ impl WasmHeader for CeloWrappedHeader {
         let client_state = ClientState {
             code_id: code_id.clone(),
             data: rlp::encode(&self.initial_client_state).as_ref().to_vec(),
-            frozen: false,
-            frozen_height: None,
             latest_height: Some(Height {
                 revision_number: 0,
                 revision_height: self.header.number.as_u64(),
             }),
-            r#type: "wasm_dummy".to_string(),
+            proof_specs: Vec::default(),
         };
 
         let consensus_state = ConsensusState {
@@ -53,7 +48,6 @@ impl WasmHeader for CeloWrappedHeader {
             data: rlp::encode(&self.initial_consensus_state).as_ref().to_vec(),
             timestamp: self.header.time.as_u64(),
             root: Some(MerkleRoot { hash: self.header.root.as_bytes().to_vec() }),
-            r#type: "wasm_dummy".to_string()
         };
 
         let msg = MsgCreateClient {
@@ -83,7 +77,6 @@ impl WasmHeader for CeloWrappedHeader {
                 revision_number: 0,
                 revision_height: self.header.number.as_u64(),
             }),
-            r#type: "wasm_dummy".to_string()
         };
 
         let msg = MsgUpdateClient {

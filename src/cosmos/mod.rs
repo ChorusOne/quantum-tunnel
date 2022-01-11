@@ -21,10 +21,6 @@ pub mod proto {
             tonic::include_proto!("tendermint.crypto");
         }
 
-        pub mod abci {
-            tonic::include_proto!("tendermint.abci");
-        }
-
         pub mod types {
             tonic::include_proto!("tendermint.types");
         }
@@ -46,12 +42,6 @@ pub mod proto {
                 }
             }
 
-            pub mod abci {
-                pub mod v1beta1 {
-                    tonic::include_proto!("cosmos.base.abci.v1beta1");
-                }
-            }
-
             pub mod v1beta1 {
                 tonic::include_proto!("cosmos.base.v1beta1");
             }
@@ -62,16 +52,6 @@ pub mod proto {
                     tonic::include_proto!("cosmos.tx.signing.v1beta1");
                 }
             }
-
-            pub mod v1beta1 {
-                tonic::include_proto!("cosmos.tx.v1beta1");
-            }
-        }
-
-        pub mod auth {
-            pub mod v1beta1 {
-                tonic::include_proto!("cosmos.auth.v1beta1");
-            }
         }
     }
 
@@ -80,20 +60,6 @@ pub mod proto {
             pub mod commitment {
                 pub mod v1 {
                     tonic::include_proto!("ibc.core.commitment.v1");
-                }
-            }
-
-            pub mod client {
-                pub mod v1 {
-                    tonic::include_proto!("ibc.core.client.v1");
-                }
-            }
-        }
-
-        pub mod lightclients {
-            pub mod wasm {
-                pub mod v1 {
-                    tonic::include_proto!("ibc.lightclients.wasm.v1");
                 }
             }
         }

@@ -1,61 +1,42 @@
 use crate::config::{CosmosChainConfig, CosmosConfig};
 use crate::cosmos::crypto::{privkey_from_seed, seed_from_mnemonic};
 use crate::cosmos::types::simulation::Message as SimMessage;
-use crate::cosmos::types::{
-    DecCoin,
-    TMHeader,
-    std_sign_bytes
-};
 use crate::cosmos::types::WasmHeader;
+use crate::cosmos::types::{std_sign_bytes, DecCoin, TMHeader};
 use crate::error::ErrorKind;
 use crate::error::ErrorKind::{MalformedResponse, UnexpectedPayload};
-use crate::utils::{to_string, prost_serialize};
+use crate::utils::{prost_serialize, to_string};
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use futures::try_join;
+use futures::StreamExt;
+
 use log::*;
-use k256::{elliptic_curve::SecretKey, ecdsa::{SigningKey, Signature}};
-use k256::EncodedPoint as Secp256k1;
+use prost::Message as ProstMessage;
+use prost_types::Any;
 use std::error::Error;
 use std::path::Path;
+use std::str::FromStr;
 use std::string::ToString;
 use subtle_encoding::bech32;
-use tendermint::net::Address;
-use tendermint_light_client::{AccountId, PublicKey};
-use tendermint_rpc::{WebSocketClient, SubscriptionClient, Client};
+use tendermint::account::Id as AccountId;
+use tendermint::public_key::{PublicKey, Secp256k1 as TMSecp256k1};
 use tendermint_rpc::query::EventType;
-use futures::StreamExt;
-use url::Url;
-use prost_types::Any;
+use tendermint_rpc::{Client, Paging, SubscriptionClient, WebSocketClient, WebSocketClientUrl};
 use signature::Signer;
-use prost::Message as ProstMessage;
 
-use crate::cosmos::proto::cosmos::tx::v1beta1::{
-    Tx, AuthInfo, Fee, ModeInfo, SignerInfo, TxBody, BroadcastTxRequest,
-    service_client::ServiceClient
+use k256::{elliptic_curve::SecretKey, ecdsa::{SigningKey, Signature}};
+
+use ibc_proto::cosmos::auth::v1beta1::{
+    query_client::QueryClient, BaseAccount, QueryAccountRequest,
 };
-use crate::cosmos::proto::cosmos::tx::v1beta1::mode_info::{Single, Sum};
-
-
-use crate::cosmos::proto::{
-    cosmos::auth::v1beta1::{BaseAccount, QueryAccountRequest, query_client::QueryClient},
+use ibc_proto::cosmos::tx::v1beta1::mode_info::{Single, Sum};
+use ibc_proto::cosmos::tx::v1beta1::service_client::ServiceClient;
+use ibc_proto::cosmos::tx::v1beta1::{
+    AuthInfo, BroadcastTxRequest, Fee, ModeInfo, SignerInfo, Tx, TxBody,
 };
 
 pub struct CosmosHandler {}
 impl CosmosHandler {
-    fn parse_tm_addr(url: Url) -> Result<Address, String> {
-        if url.host_str().is_none() {
-            return Err(format!("missing host string in url: {}", url));
-        }
-        if url.port().is_none() {
-            return Err(format!("missing port in url: {}", url));
-        }
-        Ok(Address::Tcp {
-            host: url.host_str().unwrap().to_string(),
-            port: url.port().unwrap(),
-            peer_id: None,
-        })
-    }
-
     /// Receive handler entrypoint
     /// Branches to different internal methods depending upon whether
     /// configuration is `Real` or `Simulation`
@@ -151,10 +132,10 @@ impl CosmosHandler {
         cfg: CosmosConfig,
         outchan: Sender<(TMHeader, Vec<tendermint::validator::Info>)>,
     ) -> Result<(), String> {
-        let rpc_url = Url::parse(&cfg.rpc_addr).map_err(to_string)?;
-        let tm_addr = CosmosHandler::parse_tm_addr(rpc_url)?;
+        //let rpc_url = Url::parse(&cfg.rpc_addr).map_err(to_string)?;
+        let tm_addr = WebSocketClientUrl::from_str(&cfg.rpc_addr).map_err(to_string)?;
         info!("opening websocket to to {:?}", tm_addr.clone());
-        let (mut client, driver) = WebSocketClient::new(tm_addr.clone())
+        let (mut client, driver) = WebSocketClient::new(cfg.rpc_addr.as_str())
             .await
             .map_err(to_string)?;
 
@@ -205,18 +186,19 @@ impl CosmosHandler {
         let result = maybe_result.unwrap();
         match result.data {
             tendermint_rpc::event::EventData::NewBlock {
-                    block,
-                    result_begin_block: _,
-                    result_end_block: _,
+                block,
+                result_begin_block: _,
+                result_end_block: _,
             } => {
                 if block.is_none() {
                     return Err(MalformedResponse("e.block".into()).into());
                 }
                 let block = block.unwrap();
                 let commit_future = client.commit(block.header.height);
-                let validator_set_future = client.validators(block.header.height);
+                let validator_set_future = client.validators(block.header.height, Paging::Default);
                 let (signed_header_response, validator_set_response) =
-                    try_join!(commit_future, validator_set_future)?;
+                    try_join!(commit_future, validator_set_future)
+                        .map_err(|e| ErrorKind::TendermintRpc(format!("{}", e)))?;
                 let header = TMHeader {
                     signed_header: signed_header_response.signed_header,
                     validator_set: validator_set_response.validators,
@@ -231,15 +213,13 @@ impl CosmosHandler {
         }
     }
 
-    fn signer_from_seed(
-        seed: String,
-    ) -> Result<(SigningKey, PublicKey, String), String> {
-        let key = seed_from_mnemonic(seed).map_err(to_string)?;
-        let secret_key = SecretKey::from_bytes(privkey_from_seed(key)).map_err(to_string)?;
+    fn signer_from_seed(seed: String) -> Result<(SigningKey, PublicKey, String), String> {
+        let key = seed_from_mnemonic(&seed).map_err(to_string)?;
+        let secret_key = SecretKey::from_bytes(privkey_from_seed(key).as_slice()).map_err(to_string)?;
         let signing_key = SigningKey::from(&secret_key);
-        let tmpubkey = PublicKey::from(Secp256k1::from_secret_key(&secret_key, true));
+        let tmpubkey = TMSecp256k1::from(signing_key.clone());
         let address = bech32::encode("cosmos", AccountId::from(tmpubkey).as_bytes());
-        Ok((signing_key, tmpubkey, address))
+        Ok((signing_key, PublicKey::Secp256k1(tmpubkey), address))
     }
 
     /// Send handler entrypoint
@@ -252,7 +232,10 @@ impl CosmosHandler {
         client_id: Option<String>,
         inchan: Receiver<T>,
         monitoring_outchan: Sender<(bool, u64)>,
-    ) -> Result<(), String> where T: WasmHeader {
+    ) -> Result<(), String>
+    where
+        T: WasmHeader,
+    {
         match cfg {
             CosmosChainConfig::Real(cfg) => {
                 if cfg.is_other_side_simulation {
@@ -283,9 +266,10 @@ impl CosmosHandler {
                     if result.is_err() {
                         match result.err().unwrap() {
                             TryRecvError::Disconnected => {
-                                return Err(
-                                    format!("{} chain-data channel's input end is disconnected.", T::chain_name())
-                                );
+                                return Err(format!(
+                                    "{} chain-data channel's input end is disconnected.",
+                                    T::chain_name()
+                                ));
                             }
                             _ => {}
                         }
@@ -306,7 +290,10 @@ impl CosmosHandler {
         client_id: Option<String>,
         inchan: Receiver<T>,
         monitoring_outchan: Sender<(bool, u64)>,
-    ) -> Result<(), String> where T: WasmHeader {
+    ) -> Result<(), String>
+    where
+        T: WasmHeader,
+    {
         let mut new_client = true;
         let mut id = if !client_id.is_some() {
             new_client = true;
@@ -320,9 +307,10 @@ impl CosmosHandler {
             let msg = if result.is_err() {
                 match result.err().unwrap() {
                     TryRecvError::Disconnected => {
-                        return Err(
-                            format!("{} chain-data channel's input end is disconnected.", T::chain_name())
-                        );
+                        return Err(format!(
+                            "{} chain-data channel's input end is disconnected.",
+                            T::chain_name()
+                        ));
                     }
                     _ => {
                         warn!("Did not receive any data from {} chain-data channel. Retrying in a second ...", T::chain_name());
@@ -352,14 +340,16 @@ impl CosmosHandler {
     }
 
     // celo daeamon -> relayer -> celo light client wasm thingy running in cosmos
-    pub async fn create_client<T>(
-        cfg: CosmosConfig,
-        header: T,
-    ) -> Result<String, String> where T: WasmHeader {
+    pub async fn create_client<T>(cfg: CosmosConfig, header: T) -> Result<String, String>
+    where
+        T: WasmHeader,
+    {
         let (signer, _, address) =
             CosmosHandler::signer_from_seed(cfg.signer_seed.clone()).map_err(to_string)?;
 
-        let m = header.to_wasm_create_msg(&cfg, address.clone()).map_err(to_string)?;
+        let m = header
+            .to_wasm_create_msg(&cfg, address.clone())
+            .map_err(to_string)?;
         let f = Fee {
             amount: vec![DecCoin::from(cfg.gas_price).mul(cfg.gas as f64).to_coin()],
             gas_limit: cfg.gas,
@@ -375,7 +365,7 @@ impl CosmosHandler {
             address.clone(),
             cfg.chain_id.clone(),
             cfg.grpc_addr.clone(),
-            true
+            true,
         )
         .await
         .map_err(to_string)?;
@@ -387,11 +377,16 @@ impl CosmosHandler {
         cfg: CosmosConfig,
         header: T,
         client_id: String,
-    ) -> Result<String, String> where T: WasmHeader {
+    ) -> Result<String, String>
+    where
+        T: WasmHeader,
+    {
         let (signer, _, address) =
             CosmosHandler::signer_from_seed(cfg.signer_seed.clone()).map_err(to_string)?;
 
-        let msgs = header.to_wasm_update_msg(address.clone(), client_id).map_err(to_string)?;
+        let msgs = header
+            .to_wasm_update_msg(address.clone(), client_id)
+            .map_err(to_string)?;
 
         let txfee = Fee {
             amount: vec![DecCoin::from(cfg.gas_price).mul(cfg.gas as f64).to_coin()],
@@ -409,11 +404,15 @@ impl CosmosHandler {
             address.clone(),
             cfg.chain_id.clone(),
             cfg.grpc_addr.clone(),
-            false
+            false,
         )
         .await
         .map_err(to_string)?;
-        info!("{} light client updation TxHash: {:?}", T::chain_name(), retval.0);
+        info!(
+            "{} light client updation TxHash: {:?}",
+            T::chain_name(),
+            retval.0
+        );
         Ok(retval.0)
     }
 
@@ -433,11 +432,12 @@ impl CosmosHandler {
 
         // perpare public key
         let secret_key = SecretKey::from(&signer);
-        let public_key = Secp256k1::from_secret_key(&secret_key, true);
+        let public_key = signer.verifying_key();
         let pk_any = Any {
             type_url: "/cosmos.crypto.secp256k1.PubKey".to_string(),
-            value: prost_serialize(&public_key.as_bytes().to_vec()).map_err(to_string)?,
+            value: prost_serialize(&public_key.to_bytes().as_slice().to_vec()).map_err(to_string)?,
         };
+
 
         // prepare Tx segments
         let single = Single { mode: 1 };
@@ -453,18 +453,17 @@ impl CosmosHandler {
         };
 
         let auth_info = AuthInfo {
-            signer_infos: vec![
-                SignerInfo {
-                    public_key: Some(pk_any),
-                    mode_info: mode,
-                    sequence: sequence,
-                }
-            ],
+            signer_infos: vec![SignerInfo {
+                public_key: Some(pk_any),
+                mode_info: mode,
+                sequence,
+            }],
             fee: Some(fee),
         };
 
         // create transaction signature
-        let bytes_to_sign = std_sign_bytes(&tx_body, &auth_info, chain_id, account_number).map_err(to_string)?;
+        let bytes_to_sign =
+            std_sign_bytes(&tx_body, &auth_info, chain_id, account_number).map_err(to_string)?;
         let signature: Signature = signer.sign(bytes_to_sign.as_slice());
 
         let tx = Tx {
@@ -475,13 +474,16 @@ impl CosmosHandler {
 
         let mut client = ServiceClient::connect(grpc_addr).await.map_err(to_string)?;
 
-        let request = tonic::Request::new(BroadcastTxRequest {
+        let request = BroadcastTxRequest {
             tx_bytes: prost_serialize(&tx).map_err(to_string)?,
             mode: 1,
-        });
+        };
 
         let response = client.broadcast_tx(request).await.map_err(to_string)?;
-        let tx_response = response.into_inner().tx_response.ok_or("failed to get tx_response")?;
+        let tx_response = response
+            .into_inner()
+            .tx_response
+            .ok_or("failed to get tx_response")?;
 
         if tx_response.code != 0 {
             error!(
@@ -492,14 +494,17 @@ impl CosmosHandler {
         };
 
         let client_id = if find_client_id {
-            let event = tx_response.logs
-                .get(0).ok_or("empty event log")?
+            let event = tx_response
+                .logs
+                .get(0)
+                .ok_or("empty event log")?
                 .events
                 .iter()
                 .find(|&event| event.r#type == "create_client")
                 .ok_or("can't find create_client event in the log")?;
 
-            let attribute = event.attributes
+            let attribute = event
+                .attributes
                 .iter()
                 .find(|attr| attr.key == "client_id")
                 .ok_or("unable to find client_id attribute")?;
@@ -515,9 +520,7 @@ impl CosmosHandler {
     async fn get_account(account: String, grpc_addr: String) -> Result<(u64, u64), String> {
         let mut client = QueryClient::connect(grpc_addr).await.map_err(to_string)?;
 
-        let request = tonic::Request::new(QueryAccountRequest {
-            address: account
-        });
+        let request = tonic::Request::new(QueryAccountRequest { address: account });
 
         let response = client.account(request).await.map_err(to_string)?;
         let account: BaseAccount = match response.into_inner().account {
@@ -525,31 +528,37 @@ impl CosmosHandler {
             None => return Err("failed to extract account from response".to_string()),
         };
 
-        Ok((
-            account.account_number,
-            account.sequence
-        ))
+        Ok((account.account_number, account.sequence))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::CosmosHandler;
-    use signature::Signer;
     use k256::ecdsa::Signature;
     use k256::elliptic_curve::SecretKey;
     use k256::EncodedPoint as Secp256k1;
+    use signature::Signer;
 
     const EXAMPLE_SEED: &str = "sunny source soul allow brave luggage mandate metal worth state vapor couple butter retreat solid drift cargo alley degree junk bean price element easy";
 
     #[test]
-    fn test_signer_from_seed() {
+    fn test_secret_from_seed() {
         let (signer, pk, addr) = CosmosHandler::signer_from_seed(EXAMPLE_SEED.to_string()).unwrap();
         let sig: Signature = signer.sign(&"test".as_bytes());
 
         assert_eq!(addr, "cosmos1xccsl78jz98ydsfahrnluxefyvcnavuy4g3wd5");
-        assert_eq!(pk.to_hex(), "EB5AE9872102B13C4ABBF9BEBCBFD0C99F0C9D130FDA36D5DFE5E3D93A182CB46BB93A27D732");
-        assert_eq!(tendermint_light_client::PublicKey::from(Secp256k1::from_secret_key(&SecretKey::from(&signer), true)), pk);
+        assert_eq!(
+            pk.to_hex(),
+            "EB5AE9872102B13C4ABBF9BEBCBFD0C99F0C9D130FDA36D5DFE5E3D93A182CB46BB93A27D732"
+        );
+        assert_eq!(
+            tendermint_light_client::PublicKey::from(Secp256k1::from_secret_key(
+                &SecretKey::from(&signer),
+                true
+            )),
+            pk
+        );
         assert_eq!(
             hex::encode(sig.as_ref()),
             "fe740779fefacfaacebc41973c20cdb827378f92ae3ca66422dfbb0740e962cc1aed2452c265a6aeeccbd0100d03f6b1c7052e8f17a77f5607dbf95f08e62b1c"

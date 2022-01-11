@@ -1,10 +1,9 @@
 use cast::u64;
 use regex::Regex;
 use crate::utils::prost_serialize;
-use crate::cosmos::proto::cosmos::{
-    base::v1beta1::Coin,
-    tx::v1beta1::{AuthInfo, TxBody, SignDoc},
-};
+
+use ibc_proto::cosmos::tx::v1beta1::{TxBody, AuthInfo, SignDoc};
+use ibc_proto::cosmos::base::v1beta1::Coin;
 
 #[derive(Clone, Debug)]
 pub struct DecCoin {
@@ -65,13 +64,13 @@ mod tests {
         let msg = MsgSend {
             from_address: "cosmos1a2wjatdh7k80a33qatlgqldmadxxxe3ce573d6".to_owned(),
             to_address: "cosmos1w6w5afvnqraw5w3g0kshf4kvq6d87tdy0nyxaa".to_owned(),
-            amount: vec![Coin::from("25stake".to_string())],
+            amount: vec![Coin{amount: String::from("25"), denom: String::from("stake")}],
         };
 
         let m = vec![serde_json::json!({"type": MsgSend::get_type(), "value": msg})];
         let f = StdFee {
             gas: 100000,
-            amount: vec![Coin::from("150atom".to_string())],
+            amount: vec![Coin{amount: String::from("150"), denom: String::from("atom")}],
         };
 
         let tx = StdTx {
