@@ -81,6 +81,8 @@ pub struct CosmosConfig {
     pub rpc_addr: String,
     /// address of cosmos rest service
     pub grpc_addr: String,
+    pub websocket_addr: String,
+    /// websocket address of cosmos service
     /// Bip39 seed of relayer account on cosmos chain. Does not serialize/deserialize.
     #[serde(skip)]
     pub signer_seed: String,
@@ -110,6 +112,7 @@ impl Default for CosmosConfig {
             chain_id: "<chain_id>".to_owned(),
             rpc_addr: "http://localhost:26657/".to_owned(),
             grpc_addr: "http://localhost:9090".to_owned(),
+            websocket_addr: "ws://127.0.0.1:26557/websocket".to_owned(),
             signer_seed: "".to_owned(),
             gas: 500000,
             gas_price: "0.00025stake".to_owned(),

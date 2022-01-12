@@ -132,10 +132,9 @@ impl CosmosHandler {
         cfg: CosmosConfig,
         outchan: Sender<(TMHeader, Vec<tendermint::validator::Info>)>,
     ) -> Result<(), String> {
-        //let rpc_url = Url::parse(&cfg.rpc_addr).map_err(to_string)?;
-        let tm_addr = WebSocketClientUrl::from_str(&cfg.rpc_addr).map_err(to_string)?;
+        let tm_addr = WebSocketClientUrl::from_str(&cfg.websocket_addr).map_err(to_string)?;
         info!("opening websocket to to {:?}", tm_addr.clone());
-        let (mut client, driver) = WebSocketClient::new(cfg.rpc_addr.as_str())
+        let (mut client, driver) = WebSocketClient::new(cfg.websocket_addr.as_str())
             .await
             .map_err(to_string)?;
 

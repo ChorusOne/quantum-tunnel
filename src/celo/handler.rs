@@ -337,7 +337,7 @@ pub async fn get_initial_header(
         .get_block_header_by_number("latest")
         .await
         .map_err(to_string)?;
-    let extra: IstanbulExtra = rlp::decode(&current_block_header.extra).map_err(to_string)?;
+    let _extra = celo_types::extract_istanbul_extra(&current_block_header).map_err(to_string)?;
     let last_block_num = current_block_header.number.as_u64();
     let last_block_num_hex: String = format!("0x{:x}", last_block_num);
 

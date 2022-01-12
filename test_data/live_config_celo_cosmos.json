@@ -4,6 +4,7 @@
       "chain_id": "wormhole",
       "rpc_addr": "http://localhost:26657/",
       "grpc_addr": "http://localhost:9090",
+      "websocket_addr": "ws://localhost:26657/websocket",
       "trusting_period": "720h",
       "unbonding_period": "721h",
       "max_clock_drift": "30s",
