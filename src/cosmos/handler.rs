@@ -214,7 +214,7 @@ impl CosmosHandler {
 
     fn signer_from_seed(seed: String) -> Result<(SigningKey, PublicKey, String), String> {
         let key = seed_from_mnemonic(&seed).map_err(to_string)?;
-        let secret_key = SecretKey::from_bytes(privkey_from_seed(key).as_slice()).map_err(to_string)?;
+        let secret_key = SecretKey::from_be_bytes(privkey_from_seed(key).as_slice()).map_err(to_string)?;
         let signing_key = SigningKey::from(&secret_key);
         let tmpubkey = TMSecp256k1::from(signing_key.clone());
         let address = bech32::encode("cosmos", AccountId::from(tmpubkey).as_bytes());

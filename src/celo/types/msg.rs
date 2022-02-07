@@ -40,13 +40,11 @@ impl WasmHeader for CeloWrappedHeader {
                 revision_number: 0,
                 revision_height: self.header.number.as_u64(),
             }),
-            proof_specs: Vec::default(),
         };
-
+        let tstamp = prost_types::Timestamp{seconds: self.header.time.as_u64() as i64, nanos: 0};
         let consensus_state = ConsensusState {
-            code_id,
             data: rlp::encode(&self.initial_consensus_state).as_ref().to_vec(),
-            timestamp: self.header.time.as_u64(),
+            timestamp: Some(tstamp),
             root: Some(MerkleRoot { hash: self.header.root.as_bytes().to_vec() }),
         };
 

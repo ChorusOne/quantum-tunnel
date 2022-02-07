@@ -40,7 +40,7 @@ prost = "0.9"
 prost-types = "0.9"
 tonic = "0.6"
 bitcoin = {version = "0.27"}
-k256 = {version = "0.9"}
+k256 = {version = "0.10"}
 bip39 = {version = "1.0"}
 ethereum-types = {version = "0.11", default-features = false, features = ["rlp"]}
 rlp = {version = "0.5"}
